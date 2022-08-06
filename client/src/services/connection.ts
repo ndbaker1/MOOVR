@@ -1,7 +1,7 @@
 export function createServerWebSocket(path: string) {
 
     const protocol = location.protocol.includes('https') ? 'wss' : 'ws'
-    const origin = 'localhost:42069'
+    const origin = 'phone-pong-production.up.railway.app'
 
     const webSocketUrl = `${protocol}://${origin}${path}`
 

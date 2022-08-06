@@ -58,10 +58,6 @@ function initObserverView(observerClient: ObserverClient) {
         racket.quaternion.fromArray(playerData.rotation).invert()
     })
 
-    // startOrientationTrackerLocal((sensor: any) => {
-    //     ball.quaternion.fromArray(sensor.quaternion).invert()
-    // })
-
     function animation(time: number) {
 
         console.log(JSON.stringify(racket.rotation))

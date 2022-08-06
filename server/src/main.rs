@@ -37,6 +37,8 @@ enum ChangeData {
 pub struct PlayerData {
     /// 3D coordinate of the player
     position: Vec3,
+    /// 3D coordinate of the player
+    velocity: Vec3,
     /// measures in 180 degrees
     rotation: Quaternion,
 }
@@ -82,7 +84,6 @@ impl Server {
                             log::info!("spawning racket client with id [{}].", user);
                             thread::spawn(move || {
                                 RacketClientHandler::new(data, user).handle(websocket_stream);
-                                log::info!("client disconnected.");
                             });
                         } else if url.starts_with(ObserverClientHandler::NAME) {
                             log::info!("spawning observer client with id [{}].", user);

@@ -48,23 +48,23 @@ impl RacketClientHandler {
             let PlayerData {
                 ref mut position,
                 ref mut rotation,
-                ..
+                ref mut velocity,
             } = data
                 .entry(self.user)
                 .or_insert_with(|| PlayerData::default());
 
             match &client_data {
                 ChangeData::Acceleration(client_acceleration) => {
-                    position[0] += client_acceleration[0] * delta;
-                    position[1] += client_acceleration[1] * delta;
-                    position[2] += client_acceleration[2] * delta;
+                    velocity[0] += client_acceleration[0];
+                    velocity[1] += client_acceleration[1];
+                    velocity[2] += client_acceleration[2];
+
+                    position[0] += velocity[0] * delta;
+                    position[1] += velocity[1] * delta;
+                    position[2] += velocity[2] * delta;
                 }
                 ChangeData::Rotation(client_rotation) => {
-                    rotation[0] = client_rotation[0];
-                    // switch
-                    rotation[1] = client_rotation[2];
-                    rotation[2] = client_rotation[1];
-                    rotation[3] = client_rotation[3];
+                    rotation.copy_from_slice(&client_rotation[..])
                 }
             }
         }

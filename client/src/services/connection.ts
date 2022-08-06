@@ -11,9 +11,9 @@ export function createServerWebSocket(path: string) {
 
     const ws = new WebSocket(webSocketUrl)
 
-    ws.addEventListener('close', e => alert(e))
-    ws.addEventListener('error', e => alert(e))
-    ws.addEventListener('open', e => alert(e))
+    ws.addEventListener('close', e => console.log(JSON.stringify(e)))
+    ws.addEventListener('error', e => alert(JSON.stringify(e)))
+    ws.addEventListener('open', e => console.log(JSON.stringify(e)))
 
     return ws
 }

@@ -1,39 +1,31 @@
-use std::{sync::Arc, time::Instant};
+use std::{
+    net::TcpStream,
+    sync::{Arc, Mutex},
+};
 
-use futures::StreamExt;
-use tokio::{net::TcpStream, sync::Mutex};
-use tokio_tungstenite::{tungstenite::Message, WebSocketStream};
+use tungstenite::{Message, WebSocket};
 
-use crate::{ChangeData, PlayerData, SensorType, ServerState};
+use crate::{ChangeData, PlayerData, ServerState};
 
 pub struct RacketClientHandler {
     data: Arc<Mutex<ServerState>>,
     user: usize,
-    last_instant: Instant,
 }
 impl RacketClientHandler {
     pub const NAME: &'static str = "racket";
+    pub const DELTA: f64 = 1f64 / 60f64;
 
     pub fn new(data: Arc<Mutex<ServerState>>, user: usize) -> Self {
-        Self {
-            data,
-            user,
-            last_instant: Instant::now(),
-        }
+        Self { data, user }
     }
 
-    pub async fn handle(&mut self, mut websocket_stream: WebSocketStream<TcpStream>) {
-        self.last_instant = Instant::now();
+    pub fn handle(&mut self, mut websocket_stream: WebSocket<TcpStream>) {
         // continue processing requests from the connection
-        while let Some(Ok(message)) = websocket_stream.next().await {
-            let now = Instant::now();
-            let delta = now - self.last_instant;
-            self.last_instant = now;
+        while let Ok(message) = websocket_stream.read_message() {
             match message {
                 Message::Text(text) => match serde_json::from_str::<ChangeData>(&text) {
                     Ok(ref client_data) => {
-                        self.handle_client_data(client_data, delta.as_secs_f64())
-                            .await
+                        self.handle_client_data(client_data, Self::DELTA);
                     }
                     Err(e) => log::error!("[{}]", e),
                 },
@@ -47,35 +39,30 @@ impl RacketClientHandler {
         log::info!("client disconnected.");
     }
 
-    async fn handle_client_data(&mut self, client_data: &ChangeData, delta: f64) {
-        let PlayerData {
-            mut position,
-            mut velocity,
-            mut rotation,
-        } = self
-            .data
-            .lock()
-            .await
-            .entry(self.user)
-            .or_insert_with(|| PlayerData::default());
+    fn handle_client_data(&mut self, client_data: &ChangeData, delta: f64) {
+        if let Ok(mut data) = self.data.lock() {
+            let PlayerData {
+                ref mut position,
+                ref mut rotation,
+                ..
+            } = data
+                .entry(self.user)
+                .or_insert_with(|| PlayerData::default());
 
-        match client_data.type_name {
-            SensorType::Acceleration => {
-                velocity[0] += client_data.axis_data[0];
-                velocity[1] += client_data.axis_data[1];
-                velocity[2] += client_data.axis_data[2];
-
-                position[0] += velocity[0] * delta;
-                position[1] += velocity[1] * delta;
-                position[2] += velocity[2] * delta;
-            }
-            SensorType::Orientation => {
-                rotation[0] += client_data.axis_data[0];
-                rotation[1] += client_data.axis_data[1];
-                rotation[2] += client_data.axis_data[2];
+            match &client_data {
+                ChangeData::Acceleration(client_acceleration) => {
+                    position[0] += client_acceleration[0] * delta;
+                    position[1] += client_acceleration[1] * delta;
+                    position[2] += client_acceleration[2] * delta;
+                }
+                ChangeData::Rotation(client_rotation) => {
+                    rotation[0] = client_rotation[0];
+                    // switch
+                    rotation[1] = client_rotation[2];
+                    rotation[2] = client_rotation[1];
+                    rotation[3] = client_rotation[3];
+                }
             }
         }
-
-        log::info!("[{:?}]", position);
     }
 }

@@ -1,6 +1,9 @@
 export function createServerWebSocket(path: string) {
 
-    const webSocketUrl = `${location.protocol.includes('https') ? 'wss' : 'ws'}://sansan.loca.lt${path}`;
+    const protocol = location.protocol.includes('https') ? 'wss' : 'ws'
+    const origin = 'localhost:42069'
+
+    const webSocketUrl = `${protocol}://${origin}${path}`
 
     if (!webSocketUrl.startsWith('ws')) {
         throw Error('bad url')

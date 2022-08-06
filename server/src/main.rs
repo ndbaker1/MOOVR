@@ -1,18 +1,12 @@
-use futures::SinkExt;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, sync::Arc};
-use tokio::{
-    net::{TcpListener, TcpStream},
-    sync::{
-        mpsc::{self, UnboundedSender},
-        Mutex,
-    },
+use std::{
+    collections::HashMap,
+    net::TcpListener,
+    sync::{Arc, Mutex},
+    thread,
 };
-use tokio_tungstenite::{
-    accept_hdr_async,
-    tungstenite::{handshake::server::Request, Message},
-    WebSocketStream,
-};
+
+use tungstenite::{accept_hdr, handshake::server::Request};
 
 use crate::{observer_client::ObserverClientHandler, racket_client::RacketClientHandler};
 
@@ -23,38 +17,25 @@ const PORT: u16 = 42069;
 
 fn main() {
     env_logger::init();
-    tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()
-        .unwrap()
-        .block_on(async { Server::default().serve(&format!("0.0.0.0:{}", PORT)).await });
+    Server::default().serve(&format!("0.0.0.0:{}", PORT));
 }
 
-type AxisData = [f64; 3];
+type Quaternion = [f64; 4];
+type Vec3 = [f64; 3];
 
 #[derive(Deserialize, Debug)]
-enum SensorType {
-    #[serde(rename = "acceleration")]
-    Acceleration,
-    #[serde(rename = "orientation")]
-    Orientation,
-}
-
-#[derive(Deserialize, Debug)]
-struct ChangeData {
-    #[serde(alias = "type")]
-    type_name: SensorType,
-    axis_data: AxisData,
+#[serde(tag = "type", content = "data")]
+enum ChangeData {
+    Rotation(Quaternion),
+    Acceleration(Vec3),
 }
 
 #[derive(Debug, Default, Serialize)]
 pub struct PlayerData {
     /// 3D coordinate of the player
-    position: AxisData,
-    /// velocity of the player's racket
-    velocity: AxisData,
+    position: Vec3,
     /// measures in 180 degrees
-    rotation: AxisData,
+    rotation: Quaternion,
 }
 
 type ServerState = HashMap<usize, PlayerData>;
@@ -65,25 +46,22 @@ struct Server {
 }
 
 impl Server {
-    async fn serve(&mut self, listener_addr: &str) {
-        let listener = TcpListener::bind(listener_addr).await.unwrap();
+    fn serve(&mut self, listener_addr: &str) {
+        let listener = TcpListener::bind(listener_addr).unwrap();
 
         log::info!("listening for connections.");
         loop {
-            match listener.accept().await {
+            match listener.accept() {
                 Ok((tcp, _addr)) => {
                     let data = self.data.clone();
                     // Waits for new connections asynchronously
                     // when a client attempts to connect, read the URI to get extra metadata
                     let mut request_uri = None;
-                    if let Ok(websocket_stream) =
-                        accept_hdr_async(tcp, |request: &Request, response| {
-                            log::info!("processing client request with URI [{}]", request.uri());
-                            request_uri = Some(request.uri().clone().to_string());
-                            Ok(response)
-                        })
-                        .await
-                    {
+                    if let Ok(websocket_stream) = accept_hdr(tcp, |request: &Request, response| {
+                        log::info!("processing client request with URI [{}]", request.uri());
+                        request_uri = Some(request.uri().clone().to_string());
+                        Ok(response)
+                    }) {
                         log::info!("client connected!");
                         let url_string = request_uri.unwrap_or_default();
                         let url = url_string.trim_start_matches('/');
@@ -99,10 +77,8 @@ impl Server {
 
                         if url.starts_with(RacketClientHandler::NAME) {
                             log::info!("spawning racket client with id [{}].", user);
-                            tokio::spawn(async move {
-                                RacketClientHandler::new(data, user)
-                                    .handle(websocket_stream)
-                                    .await;
+                            thread::spawn(move || {
+                                RacketClientHandler::new(data, user).handle(websocket_stream);
                                 log::info!("client disconnected.");
                             });
                         } else if url.starts_with(ObserverClientHandler::NAME) {

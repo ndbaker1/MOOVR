@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { RacketClient } from '../services/clients/racket';
 import { ObserverClient } from '../services/clients/observer';
-import { PlayerData } from 'src/services/data';
+import { PlayerData } from '../services/data';
 
 const App = () => {
 
@@ -33,18 +33,18 @@ const App = () => {
 }
 
 function initObserverView(observerClient: ObserverClient) {
-    const camera = new THREE.PerspectiveCamera(90, window.innerWidth / window.innerHeight, 0.01, 10);
-    camera.position.z = 1;
+    const camera = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight);
+    camera.position.z = 1
 
     const scene = new THREE.Scene();
 
     // const geometry = new THREE.SphereGeometry(0.2, 20, 20);
-    const geometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
+    const geometry = new THREE.ConeGeometry(0.2, 0.2);
     const material = new THREE.MeshNormalMaterial();
-    const ball = new THREE.Mesh(geometry, material);
-    scene.add(ball);
+    const racket = new THREE.Mesh(geometry, material);
+    scene.add(racket);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    const renderer = new THREE.WebGLRenderer();
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setAnimationLoop(animation);
     document.body.appendChild(renderer.domElement);
@@ -55,16 +55,16 @@ function initObserverView(observerClient: ObserverClient) {
         const playerData = playerDatas[0]
 
         console.log(playerData)
-        ball.position.x = playerData.position[0]
-        ball.position.y = playerData.position[1]
-        ball.position.z = playerData.position[2]
-
-        ball.rotation.x = playerData.rotation[0]
-        ball.rotation.y = playerData.rotation[1]
-        ball.rotation.z = playerData.rotation[2]
+        racket.quaternion.fromArray(playerData.rotation).invert()
     })
 
+    // startOrientationTrackerLocal((sensor: any) => {
+    //     ball.quaternion.fromArray(sensor.quaternion).invert()
+    // })
+
     function animation(time: number) {
+
+        console.log(JSON.stringify(racket.rotation))
         renderer.render(scene, camera);
     }
 }

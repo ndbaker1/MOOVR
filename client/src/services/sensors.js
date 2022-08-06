@@ -1,5 +1,3 @@
-import { AxisUpdate } from "./data";
-
 const frequency = 60;
 
 export async function startOrientationTracker(sendCallback) {
@@ -15,14 +13,12 @@ export async function startOrientationTracker(sendCallback) {
     ])
 
     sensor.addEventListener('reading', () => {
-        sendCallback(new AxisUpdate('orientation', [sensor.quaternion[0], sensor.quaternion[1], sensor.quaternion[2]]))
+        sendCallback({ type: "Rotation", data: sensor.quaternion })
     });
     sensor.addEventListener('error', console.log)
 
     if (permissionResults.every((result) => result.state === "granted")) {
-        console.log('yesys');
         sensor.start();
-        // …
     } else {
         console.log("No permissions to use AbsoluteOrientationSensor.");
     }
@@ -36,7 +32,7 @@ export async function startAccelerometer(sendCallback) {
     });
 
     sensor.addEventListener('reading', () => {
-        sendCallback(new AxisUpdate('acceleration', [sensor.x, sensor.y, sensor.z]))
+        sendCallback({ type: "Acceleration", data: [sensor.x, sensor.y, sensor.z] })
     });
     sensor.addEventListener('error', console.log)
 

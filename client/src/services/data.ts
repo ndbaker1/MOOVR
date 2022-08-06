@@ -1,26 +1,18 @@
-export class AxisUpdate {
-    // eslint-disable-next-line no-useless-constructor
-    constructor(
-        public type: 'orientation' | 'acceleration',
-        public axis_data: [number, number, number],
-    ) { }
-
-    public intoJson(): string {
-        return JSON.stringify({
-            user: 0,
-            ...this,
-        })
-    }
+export type ChangeData = {
+    type: 'Rotation',
+    data: Quaternion
+} | {
+    type: 'Acceleration'
+    data: Vec3
 }
 
-export type AxisData = [number, number, number]
+export type Vec3 = [number, number, number]
+export type Quaternion = [number, number, number, number]
 
 export type PlayerData = {
     /// 3D coordinate of the player
-    position: AxisData,
-    /// velocity of the player's racket
-    velocity: AxisData,
+    position: Vec3,
     /// measures in 180 degrees
-    rotation: AxisData,
+    rotation: Quaternion,
 }
 

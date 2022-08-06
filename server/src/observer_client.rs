@@ -1,47 +1,50 @@
 use std::{
-    sync::Arc,
-    thread::{self, Thread},
+    net::TcpStream,
+    sync::{
+        mpsc::{self, Sender},
+        Arc, Mutex,
+    },
+    thread,
     time::Duration,
 };
 
-use futures::SinkExt;
-use tokio::{
-    net::TcpStream,
-    sync::{
-        mpsc::{self, UnboundedSender},
-        Mutex,
-    },
-};
-use tokio_tungstenite::{tungstenite::Message, WebSocketStream};
+use tungstenite::{Message, WebSocket};
 
-use crate::ServerState;
+use crate::{racket_client::RacketClientHandler, ServerState};
 
 pub struct ObserverClientHandler;
 impl ObserverClientHandler {
     pub const NAME: &'static str = "observer";
 
-    pub fn create(data: Arc<Mutex<ServerState>>) -> UnboundedSender<WebSocketStream<TcpStream>> {
-        let (sx, mut rx) = mpsc::unbounded_channel::<WebSocketStream<TcpStream>>();
-        tokio::spawn(async move {
-            let mut observers = Vec::new();
-            loop {
-                if let Some(a) = rx.recv().await {
-                    observers.push(a);
-                }
+    pub fn create(data: Arc<Mutex<ServerState>>) -> Sender<WebSocket<TcpStream>> {
+        let (sx, rx) = mpsc::channel::<WebSocket<TcpStream>>();
 
-                let data = &*data.lock().await;
-                for observer in &mut observers {
-                    if let Err(e) = observer
-                        .send(Message::text(serde_json::to_string(data).unwrap()))
-                        .await
-                    {
-                        log::error!("observer error [{}]", e);
-                    }
-                }
-                drop(data);
+        let observers = Arc::new(Mutex::new(Vec::new()));
 
-                thread::sleep(Duration::from_secs_f32(1.0 / 60.0));
+        let watched_observers = observers.clone();
+        thread::spawn(move || {
+            while let Ok(a) = rx.recv() {
+                log::info!("adding new user.");
+                watched_observers.lock().unwrap().push(a);
             }
+        });
+
+        thread::spawn(move || loop {
+            let data = data.lock().unwrap();
+            observers.lock().unwrap().retain_mut(|observer| {
+                if let Err(e) =
+                    observer.write_message(Message::text(serde_json::to_string(&*data).unwrap()))
+                {
+                    log::error!("observer error [{}]", e);
+                    return false;
+                }
+
+                true
+            });
+
+            // drop lock and then sleep for 60 seconds to prevent resource starvation
+            drop(data);
+            thread::sleep(Duration::from_secs_f64(RacketClientHandler::DELTA));
         });
 
         sx

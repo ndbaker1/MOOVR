@@ -1,5 +1,5 @@
 import { createServerWebSocket } from "../connection"
-import { AxisUpdate } from "../data";
+import { ChangeData } from "../data";
 import { startAccelerometer, startOrientationTracker } from "../sensors";
 
 export class RacketClient {
@@ -8,9 +8,11 @@ export class RacketClient {
   constructor(id: number) {
     this.ws = createServerWebSocket(`/racket/${id}`)
 
-    const send = (data: AxisUpdate) => { this.ws.send(data.intoJson()) }
+    const send = (data: ChangeData) => {
+      this.ws.send(JSON.stringify(data))
+    }
 
     startAccelerometer(send)
-    // startOrientationTracker(send)
+    startOrientationTracker(send)
   }
 }

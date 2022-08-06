@@ -30,20 +30,23 @@ impl ObserverClientHandler {
         });
 
         thread::spawn(move || loop {
-            let data = data.lock().unwrap();
-            observers.lock().unwrap().retain_mut(|observer| {
-                if let Err(e) =
-                    observer.write_message(Message::text(serde_json::to_string(&*data).unwrap()))
-                {
-                    log::error!("observer error [{}]", e);
-                    return false;
+            if let Ok(data) = data.lock() {
+                // don't send empty messages to the users
+                if !data.is_empty() {
+                    observers.lock().unwrap().retain_mut(|observer| {
+                        if let Err(e) = observer
+                            .write_message(Message::text(serde_json::to_string(&*data).unwrap()))
+                        {
+                            log::error!("observer error [{}]", e);
+                            return false;
+                        }
+
+                        true
+                    });
                 }
+            }
 
-                true
-            });
-
-            // drop lock and then sleep for 60 seconds to prevent resource starvation
-            drop(data);
+            // sleep for 60 seconds to prevent resource starvation
             thread::sleep(Duration::from_secs_f64(RacketClientHandler::DELTA));
         });
 

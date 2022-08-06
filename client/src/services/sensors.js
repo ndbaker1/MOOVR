@@ -22,6 +22,8 @@ export async function startOrientationTracker(sendCallback) {
     } else {
         console.log("No permissions to use AbsoluteOrientationSensor.");
     }
+
+    return () => sensor.stop()
 }
 
 
@@ -37,4 +39,6 @@ export async function startAccelerometer(sendCallback) {
     sensor.addEventListener('error', console.log)
 
     sensor.start();
+
+    return () => sensor.stop()
 }

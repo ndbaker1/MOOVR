@@ -60,7 +60,7 @@ const App = () => {
                         child.material.color = '0xffb830'
                     }
                 })
-                model.position.set(0, 0, 20)
+                model.position.set(0, 20, 0)
                 scene.add(model)
             },
             progress => console.log('progress', progress),
@@ -75,6 +75,7 @@ const App = () => {
 
         // animation
         observerClient.ws.addEventListener('message', ({ data }) => {
+            console.log(data)
             const playerDatas: Record<number, PlayerData> = JSON.parse(data)
             const playerData = playerDatas[0]
 

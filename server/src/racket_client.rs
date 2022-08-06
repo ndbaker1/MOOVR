@@ -37,10 +37,9 @@ impl RacketClientHandler {
             }
         }
 
-        log::info!("client [{}] disconnected.", self.user);
-
         log::info!("cleaning up data for [{}].", self.user);
-        self.cleanup_client()
+        self.cleanup_client();
+        log::info!("client [{}] disconnected.", self.user);
     }
 
     fn handle_client_data(&mut self, client_data: &ChangeData, delta: f64) {
@@ -58,6 +57,10 @@ impl RacketClientHandler {
                     velocity[0] += client_acceleration[0];
                     velocity[1] += client_acceleration[1];
                     velocity[2] += client_acceleration[2];
+
+                    velocity[0] *= 0.9;
+                    velocity[1] *= 0.9;
+                    velocity[2] *= 0.9;
 
                     position[0] += velocity[0] * delta;
                     position[1] += velocity[1] * delta;

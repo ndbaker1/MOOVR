@@ -36,7 +36,11 @@ impl RacketClientHandler {
                 _ => log::warn!("unused message [{:?}]", message),
             }
         }
-        log::info!("client disconnected.");
+
+        log::info!("client [{}] disconnected.", self.user);
+
+        log::info!("cleaning up data for [{}].", self.user);
+        self.cleanup_client()
     }
 
     fn handle_client_data(&mut self, client_data: &ChangeData, delta: f64) {
@@ -64,5 +68,10 @@ impl RacketClientHandler {
                 }
             }
         }
+    }
+
+    fn cleanup_client(&mut self) {
+        // remove the user data once they disconnect
+        self.data.lock().unwrap().remove(&self.user);
     }
 }

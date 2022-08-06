@@ -1,6 +1,7 @@
 use std::{
     net::TcpStream,
     sync::{Arc, Mutex},
+    thread,
 };
 
 use tungstenite::{Message, WebSocket};
@@ -15,31 +16,34 @@ impl RacketClientHandler {
     pub const NAME: &'static str = "racket";
     pub const DELTA: f64 = 1f64 / 60f64;
 
-    pub fn new(data: Arc<Mutex<ServerState>>, user: usize) -> Self {
-        Self { data, user }
-    }
-
-    pub fn handle(&mut self, mut websocket_stream: WebSocket<TcpStream>) {
-        // continue processing requests from the connection
-        while let Ok(message) = websocket_stream.read_message() {
-            match message {
-                Message::Text(text) => match serde_json::from_str::<ChangeData>(&text) {
-                    Ok(ref client_data) => {
-                        self.handle_client_data(client_data, Self::DELTA);
-                    }
-                    Err(e) => log::error!("[{}]", e),
-                },
-                Message::Binary(data) => log::info!("binary [{:?}]", data),
-                Message::Close(frame) => log::info!("connection closing [{:?}]", frame),
-                Message::Ping(ping) => log::info!("ping [{:?}]", ping),
-                Message::Pong(pong) => log::info!("pong [{:?}]", pong),
-                _ => log::warn!("unused message [{:?}]", message),
+    pub fn run(
+        data: Arc<Mutex<ServerState>>,
+        user: usize,
+        mut websocket_stream: WebSocket<TcpStream>,
+    ) {
+        let mut client = Self { data, user };
+        thread::spawn(move || {
+            // continue processing requests from the connection
+            while let Ok(message) = websocket_stream.read_message() {
+                match message {
+                    Message::Text(text) => match serde_json::from_str::<ChangeData>(&text) {
+                        Ok(ref client_data) => {
+                            client.handle_client_data(client_data, Self::DELTA);
+                        }
+                        Err(e) => log::error!("[{}]", e),
+                    },
+                    Message::Binary(data) => log::info!("binary [{:?}]", data),
+                    Message::Close(frame) => log::info!("connection closing [{:?}]", frame),
+                    Message::Ping(ping) => log::info!("ping [{:?}]", ping),
+                    Message::Pong(pong) => log::info!("pong [{:?}]", pong),
+                    _ => log::warn!("unused message [{:?}]", message),
+                }
             }
-        }
 
-        log::info!("cleaning up data for [{}].", self.user);
-        self.cleanup_client();
-        log::info!("client [{}] disconnected.", self.user);
+            log::info!("cleaning up data for [{}].", client.user);
+            client.cleanup_client();
+            log::info!("client [{}] disconnected.", client.user);
+        });
     }
 
     fn handle_client_data(&mut self, client_data: &ChangeData, delta: f64) {

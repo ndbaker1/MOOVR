@@ -4,7 +4,6 @@ use std::{
     env,
     net::TcpListener,
     sync::{Arc, Mutex},
-    thread,
 };
 
 use tungstenite::{accept_hdr, handshake::server::Request};
@@ -20,7 +19,7 @@ fn main() {
         .unwrap_or_else(|_| String::from("42069"))
         .parse()
         .expect("PORT must be a number");
-    Server::default().serve(&format!("0.0.0.0:{}", port));
+    Server::serve(&format!("0.0.0.0:{}", port));
 }
 
 type Quaternion = [f64; 4];
@@ -45,20 +44,22 @@ pub struct PlayerData {
 
 type ServerState = HashMap<usize, PlayerData>;
 
-#[derive(Debug, Default)]
-struct Server {
-    data: Arc<Mutex<ServerState>>,
-}
+struct Server;
 
 impl Server {
-    fn serve(&mut self, listener_addr: &str) {
+    fn serve(listener_addr: &str) {
         let listener = TcpListener::bind(listener_addr).unwrap();
+
+        let data = Arc::new(Mutex::new(ServerState::default()));
+
+        log::info!("creating handler for observers...");
+        let observers = Arc::new(Mutex::new(Vec::new()));
+        ObserverClientHandler::run(data.clone(), observers.clone());
 
         log::info!("listening for connections.");
         loop {
             match listener.accept() {
                 Ok((tcp, _addr)) => {
-                    let data = self.data.clone();
                     // Waits for new connections asynchronously
                     // when a client attempts to connect, read the URI to get extra metadata
                     let mut request_uri = None;
@@ -78,18 +79,17 @@ impl Server {
                             .parse()
                             .expect("head connections need a user index.");
 
-                        let observer_sender = ObserverClientHandler::create(data.clone());
-
                         if url.starts_with(RacketClientHandler::NAME) {
                             log::info!("spawning racket client with id [{}].", user);
-                            thread::spawn(move || {
-                                RacketClientHandler::new(data, user).handle(websocket_stream);
-                            });
+                            RacketClientHandler::run(data.clone(), user, websocket_stream);
                         } else if url.starts_with(ObserverClientHandler::NAME) {
+                            // observer websockets will be added to a Vec that way each does client doesn't try to acquire a lock to the data mutex.
+                            // the master client handler will lock data once and send it through all of the websockets.
                             log::info!("spawning observer client with id [{}].", user);
-                            if let Err(e) = observer_sender.send(websocket_stream) {
-                                log::error!("observer error [{}]", e);
-                            }
+                            observers
+                                .lock()
+                                .expect("add new observer websocket.")
+                                .push(websocket_stream);
                         } else {
                             log::error!("incomming connection did not provide valid type in url.");
                         }

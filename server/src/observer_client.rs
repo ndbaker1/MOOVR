@@ -1,9 +1,6 @@
 use std::{
     net::TcpStream,
-    sync::{
-        mpsc::{self, Sender},
-        Arc, Mutex,
-    },
+    sync::{Arc, Mutex},
     thread,
     time::Duration,
 };
@@ -16,19 +13,7 @@ pub struct ObserverClientHandler;
 impl ObserverClientHandler {
     pub const NAME: &'static str = "observer";
 
-    pub fn create(data: Arc<Mutex<ServerState>>) -> Sender<WebSocket<TcpStream>> {
-        let (sx, rx) = mpsc::channel::<WebSocket<TcpStream>>();
-
-        let observers = Arc::new(Mutex::new(Vec::new()));
-
-        let watched_observers = observers.clone();
-        thread::spawn(move || {
-            while let Ok(a) = rx.recv() {
-                log::info!("adding new user.");
-                watched_observers.lock().unwrap().push(a);
-            }
-        });
-
+    pub fn run(data: Arc<Mutex<ServerState>>, observers: Arc<Mutex<Vec<WebSocket<TcpStream>>>>) {
         thread::spawn(move || loop {
             if let Ok(data) = data.lock() {
                 // don't send empty messages to the users
@@ -49,7 +34,5 @@ impl ObserverClientHandler {
             // sleep for 60 seconds to prevent resource starvation
             thread::sleep(Duration::from_secs_f64(RacketClientHandler::DELTA));
         });
-
-        sx
     }
 }

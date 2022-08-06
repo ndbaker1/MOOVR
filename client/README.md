@@ -1,4 +1,4 @@
-# head-client
+# client
 
 ## CLI Commands
 *   `npm install`: Installs dependencies

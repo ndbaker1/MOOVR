@@ -1,6 +1,6 @@
 {
-  "name": "head-client",
-  "short_name": "head-client",
+  "name": "client",
+  "short_name": "client",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",

@@ -56,6 +56,7 @@ function initObserverView(observerClient: ObserverClient) {
 
         console.log(playerData)
         racket.quaternion.fromArray(playerData.rotation).invert()
+        // racket.position.fromArray(playerData.position)
     })
 
     function animation(time: number) {

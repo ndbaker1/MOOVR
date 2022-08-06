@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
+    env,
     net::TcpListener,
     sync::{Arc, Mutex},
     thread,
@@ -13,11 +14,13 @@ use crate::{observer_client::ObserverClientHandler, racket_client::RacketClientH
 mod observer_client;
 mod racket_client;
 
-const PORT: u16 = 42069;
-
 fn main() {
     env_logger::init();
-    Server::default().serve(&format!("0.0.0.0:{}", PORT));
+    let port: u16 = env::var("PORT")
+        .unwrap_or_else(|_| String::from("42069"))
+        .parse()
+        .expect("PORT must be a number");
+    Server::default().serve(&format!("0.0.0.0:{}", port));
 }
 
 type Quaternion = [f64; 4];

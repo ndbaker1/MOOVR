@@ -49,20 +49,25 @@ const App = () => {
 
         // animation
         observerClient.ws.addEventListener('message', ({ data }) => {
-            const playerDatas: Record<number, PlayerData> = JSON.parse(data)
-            const playerData = playerDatas[0]
+            const playerDatas: PlayerData[] = JSON.parse(data)
 
-            {
-                const [x, y, z, w] = playerData.rotation
-                // flip y and z based on how we interpret them.
-                const quaternion = racket.quaternion.fromArray([x, z, y, w]).invert()
-                // reverse the X and Y rotation,
-                // which means mirror the XY plane (negation of the Z and W values).
-                quaternion.z *= -1
-                quaternion.w *= -1
-            }
+            playerDatas.forEach(playerData => {
 
-            // racket.position.fromArray(playerData.position)
+                {
+                    const [x, y, z, w] = playerData.rotation
+                    // flip y and z based on how we interpret them.
+                    const quaternion = racket.quaternion.fromArray([x, z, y, w]).invert()
+                    // reverse the X and Y rotation,
+                    // which means mirror the XY plane (negation of the Z and W values).
+                    quaternion.z *= -1
+                    quaternion.w *= -1
+                }
+
+                {
+                    // racket.position.fromArray(playerData.position)
+                }
+
+            })
         })
 
         function animation(time: number) {

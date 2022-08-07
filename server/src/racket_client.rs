@@ -41,7 +41,6 @@ impl RacketClientHandler {
             }
 
             log::info!("cleaning up data for [{}].", client.user);
-            websocket_stream.close(None).unwrap();
             client.cleanup_client();
             log::info!("client [{}] disconnected.", client.user);
         });

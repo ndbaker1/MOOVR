@@ -1,5 +1,5 @@
 // eslint-disable-next-line prefer-const
-let ENV_ORIGIN: any = 'localhost:42069'
+let ENV_ORIGIN: any //= 'localhost:42069'
 
 export function createServerWebSocket(path: string) {
 

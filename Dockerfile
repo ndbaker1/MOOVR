@@ -9,7 +9,6 @@ FROM scratch as deployment
 COPY --from=rust-builder /home/rust/src/target/release/server ./
 
 ENV RUST_LOG=info
-
 ENV PORT=${PORT:-80}
 
 ENTRYPOINT ["./server"]

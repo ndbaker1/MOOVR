@@ -36,8 +36,6 @@ enum ChangeData {
 pub struct PlayerData {
     /// 3D coordinate of the player
     position: Vec3,
-    /// 3D coordinate of the player
-    velocity: Vec3,
     /// measures in 180 degrees
     rotation: Quaternion,
 }

@@ -21,7 +21,10 @@ const App = () => {
                     observer
                 </button>
                 <button onClick={() => new RacketClient(0)} >
-                    racket
+                    racket 0
+                </button>
+                <button onClick={() => new RacketClient(1)} >
+                    racket 1
                 </button>
             </div>
 
@@ -49,10 +52,11 @@ const App = () => {
 
         // animation
         observerClient.ws.addEventListener('message', ({ data }) => {
-            const playerDatas: PlayerData[] = JSON.parse(data)
+            const playerDatas = ObserverClient.asPlayerData(data)
+
+            console.log(playerDatas)
 
             playerDatas.forEach(playerData => {
-
                 {
                     const [x, y, z, w] = playerData.rotation
                     // flip y and z based on how we interpret them.

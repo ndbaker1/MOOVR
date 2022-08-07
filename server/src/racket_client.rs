@@ -57,15 +57,15 @@ impl RacketClientHandler {
 
             match &client_data {
                 ChangeData::Acceleration(client_acceleration) => {
-                    let client_acceleration = quaternion::rotate_vector(
-                        (rotation[3], [-rotation[0], -rotation[1], -rotation[2]]),
-                        *client_acceleration,
-                    );
+                    // let client_acceleration = quaternion::rotate_vector(
+                    //     (rotation[3], [-rotation[0], -rotation[1], -rotation[2]]),
+                    //     *client_acceleration,
+                    // );
 
                     let delta_squared_over_two = delta * delta / 2.0;
-                    position[0] += client_acceleration[0] * delta_squared_over_two;
-                    position[1] += client_acceleration[1] * delta_squared_over_two;
-                    position[2] += client_acceleration[2] * delta_squared_over_two;
+                    position[0] += client_acceleration[0] * delta; // * delta_squared_over_two;
+                    position[1] += client_acceleration[1] * delta; // * delta_squared_over_two;
+                    position[2] += client_acceleration[2] * delta; // * delta_squared_over_two;
                 }
                 ChangeData::Rotation(client_rotation) => {
                     rotation.copy_from_slice(&client_rotation[..])

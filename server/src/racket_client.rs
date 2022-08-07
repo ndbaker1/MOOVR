@@ -63,9 +63,9 @@ impl RacketClientHandler {
                     //     *client_acceleration,
                     // );
 
-                    velocity[0] += client_acceleration[0];
-                    velocity[1] += client_acceleration[1];
-                    velocity[2] += client_acceleration[2];
+                    velocity[0] += client_acceleration[0] * delta;
+                    velocity[1] += client_acceleration[1] * delta;
+                    velocity[2] += client_acceleration[2] * delta;
 
                     position[0] += velocity[0];
                     // position[1] += velocity[1];

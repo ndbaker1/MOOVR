@@ -8,7 +8,7 @@ export class ObserverClient {
         this.ws = createServerWebSocket(`/observer/${id}`)
     }
 
-    public static asPlayerData(data: unknown): PlayerData[] {
+    public static asPlayerData(data: unknown): Record<number, PlayerData> {
         if (typeof data === 'string') {
             return JSON.parse(data)
         }

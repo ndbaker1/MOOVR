@@ -60,6 +60,11 @@ impl RacketClientHandler {
                 ChangeData::Acceleration(client_acceleration) => {
                     const DAMPENER: f64 = 0.95;
 
+                    let client_acceleration = quaternion::rotate_vector(
+                        (rotation[3], [-rotation[0], -rotation[1], -rotation[2]]),
+                        *client_acceleration,
+                    );
+
                     velocity[0] += client_acceleration[0];
                     velocity[1] += client_acceleration[1];
                     velocity[2] += client_acceleration[2];

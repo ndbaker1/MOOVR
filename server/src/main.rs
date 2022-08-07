@@ -56,7 +56,7 @@ impl Server {
         let observers = Arc::new(Mutex::new(Vec::new()));
         ObserverClientHandler::run(data.clone(), observers.clone());
 
-        log::info!("listening for connections.");
+        log::info!("listening for connections on [{}].", listener_addr);
         loop {
             match listener.accept() {
                 Ok((tcp, _addr)) => {

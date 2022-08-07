@@ -41,6 +41,7 @@ impl RacketClientHandler {
             }
 
             log::info!("cleaning up data for [{}].", client.user);
+            websocket_stream.close(None).unwrap();
             client.cleanup_client();
             log::info!("client [{}] disconnected.", client.user);
         });
@@ -58,17 +59,19 @@ impl RacketClientHandler {
 
             match &client_data {
                 ChangeData::Acceleration(client_acceleration) => {
+                    const DAMPENER: f64 = 0.95;
+
                     velocity[0] += client_acceleration[0];
                     velocity[1] += client_acceleration[1];
                     velocity[2] += client_acceleration[2];
 
-                    velocity[0] *= 0.9;
-                    velocity[1] *= 0.9;
-                    velocity[2] *= 0.9;
+                    velocity[0] *= DAMPENER;
+                    velocity[1] *= DAMPENER;
+                    velocity[2] *= DAMPENER;
 
-                    position[0] += velocity[0] * delta;
-                    position[1] += velocity[1] * delta;
-                    position[2] += velocity[2] * delta;
+                    position[0] += velocity[0];
+                    position[1] += velocity[1];
+                    position[2] += velocity[2];
                 }
                 ChangeData::Rotation(client_rotation) => {
                     rotation.copy_from_slice(&client_rotation[..])

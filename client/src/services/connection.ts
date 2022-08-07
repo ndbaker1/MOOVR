@@ -1,7 +1,10 @@
+// eslint-disable-next-line prefer-const
+let ENV_ORIGIN: any = 'localhost:42069'
+
 export function createServerWebSocket(path: string) {
 
     const protocol = location.protocol.includes('https') ? 'wss' : 'ws'
-    const origin = 'phone-pong-production.up.railway.app'
+    const origin = ENV_ORIGIN ?? 'phone-pong-production.up.railway.app'
 
     const webSocketUrl = `${protocol}://${origin}${path}`
 

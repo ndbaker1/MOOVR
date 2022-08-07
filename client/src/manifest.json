@@ -1,6 +1,6 @@
 {
-  "name": "client",
-  "short_name": "client",
+  "name": "Phone Pong",
+  "short_name": "Phone Pong",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",

@@ -58,24 +58,23 @@ impl RacketClientHandler {
 
             match &client_data {
                 ChangeData::Acceleration(client_acceleration) => {
-                    const DAMPENER: f64 = 0.95;
-
-                    let client_acceleration = quaternion::rotate_vector(
-                        (rotation[3], [-rotation[0], -rotation[1], -rotation[2]]),
-                        *client_acceleration,
-                    );
+                    // let client_acceleration = quaternion::rotate_vector(
+                    //     (rotation[3], [-rotation[0], -rotation[1], -rotation[2]]),
+                    //     *client_acceleration,
+                    // );
 
                     velocity[0] += client_acceleration[0];
                     velocity[1] += client_acceleration[1];
                     velocity[2] += client_acceleration[2];
 
+                    position[0] += velocity[0];
+                    // position[1] += velocity[1];
+                    // position[2] += velocity[2];
+
+                    const DAMPENER: f64 = 0.95;
                     velocity[0] *= DAMPENER;
                     velocity[1] *= DAMPENER;
                     velocity[2] *= DAMPENER;
-
-                    position[0] += velocity[0];
-                    position[1] += velocity[1];
-                    position[2] += velocity[2];
                 }
                 ChangeData::Rotation(client_rotation) => {
                     rotation.copy_from_slice(&client_rotation[..])

@@ -1,10 +1,11 @@
-// eslint-disable-next-line prefer-const
-let ENV_ORIGIN: any //= 'localhost:42069'
+import { WS_ORIGIN } from "../environment"
+
 
 export function createServerWebSocket(path: string) {
 
     const protocol = location.protocol.includes('https') ? 'wss' : 'ws'
-    const origin = ENV_ORIGIN ?? 'phone-pong-production.up.railway.app'
+    // allow us to override the websocker endpoint if we need
+    const origin = sessionStorage.getItem('WS_ORIGIN') ?? WS_ORIGIN
 
     const webSocketUrl = `${protocol}://${origin}${path}`
 

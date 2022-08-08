@@ -1,6 +1,7 @@
 import React from "react";
 import * as THREE from 'three';
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader";
+import { BASE_PATH } from "../environment";
 import { ObserverClient } from "../services/clients/observer";
 import { RacketClient } from "../services/clients/racket";
 
@@ -29,11 +30,13 @@ export default Home;
 
 type ObserverParameters = {}
 
+
+
 async function loadMeshes() {
 
   const loader = new OBJLoader()
 
-  const models = await loader.loadAsync('/assets/phone-pong.obj')
+  const models = await loader.loadAsync(`${BASE_PATH}/assets/phone-pong.obj`)
 
   const racketMesh = models.children[1] as THREE.Mesh
   racketMesh.material = new THREE.MeshNormalMaterial();

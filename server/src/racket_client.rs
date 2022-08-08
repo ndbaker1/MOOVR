@@ -40,9 +40,9 @@ impl RacketClientHandler {
                 }
             }
 
-            log::info!("cleaning up data for [{}].", client.user);
+            log::info!("cleaning up data for client [{}].", client.user);
             client.cleanup_client();
-            log::info!("client [{}] disconnected.", client.user);
+            log::info!("racket client [{}] disconnected.", client.user);
         });
     }
 

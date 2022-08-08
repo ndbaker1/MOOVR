@@ -62,11 +62,10 @@ impl Server {
                     // when a client attempts to connect, read the URI to get extra metadata
                     let mut request_uri = None;
                     if let Ok(websocket_stream) = accept_hdr(tcp, |request: &Request, response| {
-                        log::info!("processing client request with URI [{}]", request.uri());
+                        log::info!("incoming client request with URI [{}].", request.uri());
                         request_uri = Some(request.uri().clone().to_string());
                         Ok(response)
                     }) {
-                        log::info!("client connected!");
                         let url_string = request_uri.unwrap_or_default();
                         let url = url_string.trim_start_matches('/');
                         let user = url
@@ -81,13 +80,13 @@ impl Server {
                             log::info!("spawning racket client with id [{}].", user);
                             RacketClientHandler::run(data.clone(), user, websocket_stream);
                         } else if url.starts_with(ObserverClientHandler::NAME) {
+                            log::info!("spawning observer client with id [{}].", user);
                             // observer websockets will be added to a Vec that way each does client doesn't try to acquire a lock to the data mutex.
                             // the master client handler will lock data once and send it through all of the websockets.
-                            log::info!("spawning observer client with id [{}].", user);
                             observers
                                 .lock()
                                 .expect("add new observer websocket.")
-                                .push(websocket_stream);
+                                .push((user, websocket_stream));
                         } else {
                             log::error!("incomming connection did not provide valid type in url.");
                         }

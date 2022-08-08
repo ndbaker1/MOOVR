@@ -1,7 +1,7 @@
 {
   "name": "Phone Pong",
   "short_name": "Phone Pong",
-  "start_url": "/phone-pong/",
+  "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#fff",

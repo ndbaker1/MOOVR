@@ -1,11 +1,11 @@
-import { createServerWebSocket } from "../connection";
+import { createServerWebSocket, WebSocketCallbacks } from "../connection";
 import { PlayerData } from "../data";
 
 export class ObserverClient {
     public ws: WebSocket
 
-    constructor(id: number, host: string) {
-        this.ws = createServerWebSocket({ host, path: `/observer/${id}` })
+    constructor(public id: number, host: string, callbacks: WebSocketCallbacks) {
+        this.ws = createServerWebSocket({ host, path: `/observer/${id}`, ...callbacks })
     }
 
     public static asPlayerData(data: unknown): Record<number, PlayerData> {

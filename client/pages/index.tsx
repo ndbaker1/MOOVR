@@ -1,4 +1,4 @@
-import { ActionIcon, Button, Dialog, Group, Menu, SimpleGrid, Stack, TextInput, Tooltip } from "@mantine/core";
+import { ActionIcon, Button, Dialog, Group, Loader, Menu, SimpleGrid, Stack, TextInput, Tooltip } from "@mantine/core";
 import React from "react";
 import { AccessPoint, FileArrowLeft } from "tabler-icons-react";
 import * as THREE from 'three';
@@ -7,29 +7,54 @@ import { BASE_PATH, WS_HOST } from "../environment";
 import { ObserverClient } from "../services/clients/observer";
 import { RacketClient } from "../services/clients/racket";
 
+
 const Home = () => {
 
-  const [controlOpen, setControlOpen] = React.useState(true)
+  const [racketClient, setRacketClient] = React.useState<RacketClient>()
+  const [racketClientLoading, setRacketClientLoading] = React.useState(false)
+  const [observerClient, setObserverClient] = React.useState<ObserverClient>()
+  const [observerClientLoading, setObserverClientLoading] = React.useState(false)
+
   const { host, setHost, webSocketHost } = useHost(WS_HOST)
 
   return (
     <div id="app">
       <Dialog
-        opened={controlOpen}
-        withCloseButton
-        onClose={() => setControlOpen(false)}
+        opened={true}
         size={"min(90vw, 30rem)"} >
         <Stack>
           <Group grow>
             <Menu shadow="md">
               <Menu.Target>
-                <Button>Observer Client</Button>
+                <Button>
+                  {observerClientLoading
+                    ? <Loader color={"white"} size={"sm"} />
+                    : observerClient ? `Observer ${observerClient.id}` : "Connect Observer"
+                  }
+                </Button>
               </Menu.Target>
               <Menu.Dropdown>
                 <SimpleGrid cols={3}>
-                  {[...Array(9).keys()].map(i =>
+                  {Array(9).fill(0).map((_, i) =>
                     <Group grow key={i}>
-                      <ActionIcon size="xl" onClick={() => initObserverView({}, new ObserverClient(i, webSocketHost))}>{i}</ActionIcon>
+                      <ActionIcon
+                        size="xl"
+                        onClick={() => {
+                          setObserverClientLoading(true)
+                          const newObserverClient = new ObserverClient(i, webSocketHost, {
+                            openCallback: () => {
+                              setObserverClient(client => {
+                                if (client) { client.ws.close() }
+                                initObserverView({}, newObserverClient)
+                                setObserverClientLoading(false)
+                                return newObserverClient
+                              })
+                            }
+                          })
+                        }}
+                      >
+                        {i}
+                      </ActionIcon>
                     </Group>
                   )}
                 </SimpleGrid>
@@ -38,26 +63,47 @@ const Home = () => {
 
             <Menu shadow="md">
               <Menu.Target>
-                <Button>Racket Client</Button>
+                <Button>
+                  {racketClientLoading
+                    ? <Loader color={"white"} size={"sm"} />
+                    : racketClient ? `Racket ${racketClient.id}` : "Connect Racket"
+                  }
+                </Button>
               </Menu.Target>
               <Menu.Dropdown>
                 <SimpleGrid cols={3}>
-                  {[...Array(9).keys()].map(i =>
+                  {Array(9).fill(0).map((_, i) =>
                     <Group grow key={i}>
-                      <ActionIcon size="xl" onClick={() => new RacketClient(i, webSocketHost)}>{i}</ActionIcon>
+                      <ActionIcon
+                        size="xl"
+                        onClick={() => {
+                          setRacketClientLoading(true)
+                          const newRacketClient = new RacketClient(i, webSocketHost, {
+                            openCallback: () => {
+                              setRacketClient(client => {
+                                if (client) { client.ws.close() }
+                                setRacketClientLoading(false)
+                                return newRacketClient
+                              })
+                            }
+                          })
+                        }}
+                      >
+                        {i}
+                      </ActionIcon>
                     </Group>
                   )}
                 </SimpleGrid>
               </Menu.Dropdown>
             </Menu>
           </Group>
-            <Group grow>
+          <Group grow>
             <TextInput
-              icon={<AccessPoint/>}
+              icon={<AccessPoint />}
               rightSection={
                 <Tooltip label="paste">
                   <ActionIcon onClick={() => navigator.clipboard.readText().then(setHost)}>
-                    <FileArrowLeft/>
+                    <FileArrowLeft />
                   </ActionIcon>
                 </Tooltip>
               }
@@ -70,12 +116,13 @@ const Home = () => {
       </Dialog>
 
       <main id="screen"></main>
-    </div>
+    </div >
   )
 }
 
 function useHost(defaultHost: string) {
   const [host, setHost] = React.useState('')
+  // replace everything before the '://' part of the url, and remove trailing '/'
   const webSocketHost = (host || defaultHost).replaceAll(/.*:\/\/|\/$/gi, '')
   return { host, setHost, webSocketHost }
 }
@@ -84,7 +131,6 @@ export default Home;
 
 
 type ObserverParameters = {}
-
 
 
 async function loadMeshes() {
@@ -117,7 +163,7 @@ async function initObserverView(parameters: ObserverParameters, observerClient: 
   // const geometry = new THREE.SphereGeometry(0.2, 20, 20);
   const rackets = new Map<string, THREE.Mesh>()
 
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  const renderer = new THREE.WebGLRenderer();
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setAnimationLoop(animation);
   const screen = document.querySelector('main[id="screen"]')

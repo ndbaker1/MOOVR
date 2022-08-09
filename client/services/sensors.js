@@ -13,7 +13,12 @@ export async function startOrientationTracker(sendCallback) {
     ])
 
     sensor.addEventListener('reading', () => {
-        sendCallback({ type: "Rotation", data: sensor.quaternion })
+        try {
+            sendCallback({ type: "Rotation", data: sensor.quaternion })
+        } catch(e) {
+            console.error(e)
+            sensor.stop()
+        }
     });
     sensor.addEventListener('error', console.log)
 
@@ -34,7 +39,12 @@ export async function startAccelerometer(sendCallback) {
     });
 
     sensor.addEventListener('reading', () => {
-        sendCallback({ type: "Acceleration", data: [sensor.x, sensor.y, sensor.z] })
+        try {
+            sendCallback({ type: "Acceleration", data: [sensor.x, sensor.y, sensor.z] })
+        } catch(e) {
+            console.error(e)
+            sensor.stop()
+        }
     });
     sensor.addEventListener('error', console.log)
 

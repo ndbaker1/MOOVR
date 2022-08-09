@@ -5,11 +5,17 @@ import { startAccelerometer, startOrientationTracker } from "../sensors";
 export class RacketClient {
   public ws: WebSocket
 
-  constructor(id: number) {
-    this.ws = createServerWebSocket(`/racket/${id}`)
+  constructor(id: number, host: string) {
+    this.ws = createServerWebSocket({ host, path: `/racket/${id}` })
 
     const send = (data: ChangeData) => {
-      this.ws.send(JSON.stringify(data))
+      if (this.ws.readyState === this.ws.CLOSING || this.ws.readyState === this.ws.CLOSED) {
+        throw Error('connection closed')
+      }
+
+      if (this.ws.readyState === this.ws.OPEN) {
+        this.ws.send(JSON.stringify(data))
+      }
     }
 
     startAccelerometer(send)

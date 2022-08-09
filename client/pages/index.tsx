@@ -1,28 +1,83 @@
+import { ActionIcon, Button, Dialog, Group, Menu, SimpleGrid, Stack, TextInput, Tooltip } from "@mantine/core";
 import React from "react";
+import { AccessPoint, FileArrowLeft } from "tabler-icons-react";
 import * as THREE from 'three';
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader";
-import { BASE_PATH } from "../environment";
+import { BASE_PATH, WS_HOST } from "../environment";
 import { ObserverClient } from "../services/clients/observer";
 import { RacketClient } from "../services/clients/racket";
 
 const Home = () => {
 
+  const [controlOpen, setControlOpen] = React.useState(true)
+  const { host, setHost, webSocketHost } = useHost(WS_HOST)
+
   return (
     <div id="app">
-      <div style={{ position: 'absolute' }}>
-        <button onClick={() => initObserverView({}, new ObserverClient(0))} >
-          observer
-        </button>
-        <button onClick={() => new RacketClient(0)} >
-          racket 0
-        </button>
-        <button onClick={() => new RacketClient(1)} >
-          racket 1
-        </button>
-      </div>
+      <Dialog
+        opened={controlOpen}
+        withCloseButton
+        onClose={() => setControlOpen(false)}
+        size={"min(90vw, 30rem)"} >
+        <Stack>
+          <Group grow>
+            <Menu shadow="md">
+              <Menu.Target>
+                <Button>Observer Client</Button>
+              </Menu.Target>
+              <Menu.Dropdown>
+                <SimpleGrid cols={3}>
+                  {[...Array(9).keys()].map(i =>
+                    <Group grow key={i}>
+                      <ActionIcon size="xl" onClick={() => initObserverView({}, new ObserverClient(i, webSocketHost))}>{i}</ActionIcon>
+                    </Group>
+                  )}
+                </SimpleGrid>
+              </Menu.Dropdown>
+            </Menu>
+
+            <Menu shadow="md">
+              <Menu.Target>
+                <Button>Racket Client</Button>
+              </Menu.Target>
+              <Menu.Dropdown>
+                <SimpleGrid cols={3}>
+                  {[...Array(9).keys()].map(i =>
+                    <Group grow key={i}>
+                      <ActionIcon size="xl" onClick={() => new RacketClient(i, webSocketHost)}>{i}</ActionIcon>
+                    </Group>
+                  )}
+                </SimpleGrid>
+              </Menu.Dropdown>
+            </Menu>
+          </Group>
+            <Group grow>
+            <TextInput
+              icon={<AccessPoint/>}
+              rightSection={
+                <Tooltip label="paste">
+                  <ActionIcon onClick={() => navigator.clipboard.readText().then(setHost)}>
+                    <FileArrowLeft/>
+                  </ActionIcon>
+                </Tooltip>
+              }
+              placeholder={WS_HOST}
+              onChange={e => setHost(e.target.value)}
+              width={"100%"}
+              value={host} />
+          </Group>
+        </Stack>
+      </Dialog>
+
       <main id="screen"></main>
     </div>
   )
+}
+
+function useHost(defaultHost: string) {
+  const [host, setHost] = React.useState('')
+  const webSocketHost = (host || defaultHost).replaceAll(/.*:\/\/|\/$/gi, '')
+  return { host, setHost, webSocketHost }
 }
 
 export default Home;

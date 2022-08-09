@@ -1,13 +1,14 @@
-import { WS_ORIGIN } from "../environment"
 
+export type WebSocketConfig = {
+    path: string,
+    host: string,
+}
 
-export function createServerWebSocket(path: string) {
+export function createServerWebSocket({ path, host }: WebSocketConfig) {
 
     const protocol = location.protocol.includes('https') ? 'wss' : 'ws'
-    // allow us to override the websocker endpoint if we need
-    const origin = sessionStorage.getItem('WS_ORIGIN') ?? WS_ORIGIN
 
-    const webSocketUrl = `${protocol}://${origin}${path}`
+    const webSocketUrl = `${protocol}://${host}${path}`
 
     if (!webSocketUrl.startsWith('ws')) {
         throw Error('bad url')

@@ -1,10 +1,11 @@
 import "../styles/globals.css";
 import type { AppType } from "next/dist/shared/lib/utils";
 import Head from "next/head";
+import { MantineProvider } from "@mantine/core";
 
 const MyApp: AppType = ({ Component, pageProps }) => {
   return (
-    <>
+    <MantineProvider withNormalizeCSS withCSSVariables theme={{ colorScheme: "dark" }}>
       <Head>
         <meta charSet="utf-8" />
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
@@ -33,7 +34,7 @@ const MyApp: AppType = ({ Component, pageProps }) => {
         <meta name="theme-color" content="#317EFB" />
       </Head>
       <Component {...pageProps} />
-    </>
+    </MantineProvider>
   )
 };
 

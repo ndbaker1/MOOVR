@@ -1,5 +1,6 @@
-import { ActionIcon, Button, Dialog, Group, Loader, Menu, SimpleGrid, Stack, TextInput, Tooltip } from "@mantine/core";
-import React from "react";
+import { ActionIcon, Button, Dialog, Drawer, Group, Loader, Menu, SimpleGrid, Stack, TextInput, Tooltip } from "@mantine/core";
+import Editor from "@monaco-editor/react";
+import React, { useEffect } from "react";
 import { AccessPoint, FileArrowLeft } from "tabler-icons-react";
 import * as THREE from 'three';
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader";
@@ -9,7 +10,34 @@ import { RacketClient } from "../services/clients/racket";
 
 
 const Home = () => {
+  const [debug, setDebug] = React.useState(false)
+  useEffect(() => { setDebug(!!sessionStorage.getItem('debug')) })
+  const [showEditor, setShowEditor] = React.useState(false)
+  const [renderCode, setRenderCode] = React.useState(`
+// logic for adding new meshes when a new player connects
+if (!rackets.has(id)) {
+  const racket = racketMesh.clone()
+  rackets.set(id, racket)
+  scene.add(racket)
+}
+const racket = rackets.get(id)
 
+{
+  const [x, y, z, w] = playerData.rotation
+  // flip y and z based on how we interpret them.
+  const quaternion = racket.quaternion.fromArray([x, z, y, w]).invert()
+  // reverse the X and Y rotation,
+  // which means mirror the XY plane (negation of the Z and W values).
+  quaternion.z *= -1
+  quaternion.w *= -1
+}
+
+{
+  const [x, y, z] = playerData.position.map(i => i * 2000)
+  // racket.position.fromArray([x, y, z])
+  // racket.position.fromArray([x, y, z])
+}
+ `)
   const [racketClient, setRacketClient] = React.useState<RacketClient>()
   const [racketClientLoading, setRacketClientLoading] = React.useState(false)
   const [observerClient, setObserverClient] = React.useState<ObserverClient>()
@@ -23,6 +51,7 @@ const Home = () => {
         opened={true}
         size={"min(90vw, 30rem)"} >
         <Stack>
+          {debug ? <Button onClick={() => setShowEditor(true)}>Show Editor</Button> : <></>}
           <Group grow>
             <Menu shadow="md">
               <Menu.Target>
@@ -45,7 +74,7 @@ const Home = () => {
                             openCallback: () => {
                               setObserverClient(client => {
                                 if (client) { client.ws.close() }
-                                initObserverView({}, newObserverClient)
+                                initObserverView({ code: renderCode }, newObserverClient)
                                 setObserverClientLoading(false)
                                 return newObserverClient
                               })
@@ -115,6 +144,19 @@ const Home = () => {
         </Stack>
       </Dialog>
 
+      <Drawer
+        position="right"
+        size="60vw"
+        opened={showEditor}
+        onClose={() => setShowEditor(false)}
+      >
+        <Editor
+          value={renderCode}
+          onChange={value => setRenderCode(value ?? '')}
+          language="javascript"
+          theme="vs-dark"
+        />
+      </Drawer>
       <main id="screen"></main>
     </div >
   )
@@ -130,7 +172,9 @@ function useHost(defaultHost: string) {
 export default Home;
 
 
-type ObserverParameters = {}
+type RenderParameters = {
+  code?: string
+}
 
 
 async function loadMeshes() {
@@ -151,7 +195,7 @@ async function loadMeshes() {
 }
 
 
-async function initObserverView(parameters: ObserverParameters, observerClient: ObserverClient) {
+async function initObserverView(parameters: RenderParameters, observerClient: ObserverClient) {
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 0.1, 10000);
   camera.position.set(-500, 0, 0)
@@ -173,36 +217,39 @@ async function initObserverView(parameters: ObserverParameters, observerClient: 
     throw Error('failed to replace screen with renderer.')
   }
 
+  const customRender = new Function('id', 'playerData', 'rackets', 'racketMesh', 'scene', parameters.code ?? '')
   // animation
   observerClient.ws.addEventListener('message', ({ data }) => {
     const playerDatas = ObserverClient.asPlayerData(data)
 
     Object.entries(playerDatas).forEach(([id, playerData]) => {
+      if (parameters.code) {
+        customRender(id, playerData, rackets, racketMesh, scene)
+      } else {
+        // logic for adding new meshes when a new player connects
+        if (!rackets.has(id)) {
+          const racket = racketMesh.clone()
+          rackets.set(id, racket)
+          scene.add(racket)
+        }
+        const racket = rackets.get(id)!
 
-      // logic for adding new meshes when a new player connects
-      if (!rackets.has(id)) {
-        const racket = racketMesh.clone()
-        rackets.set(id, racket)
-        scene.add(racket)
+        {
+          const [x, y, z, w] = playerData.rotation
+          // flip y and z based on how we interpret them.
+          const quaternion = racket.quaternion.fromArray([x, z, y, w]).invert()
+          // reverse the X and Y rotation,
+          // which means mirror the XY plane (negation of the Z and W values).
+          quaternion.z *= -1
+          quaternion.w *= -1
+        }
+
+        {
+          const [x, y, z] = playerData.position.map(i => i * 2000)
+          // racket.position.fromArray([x, y, z])
+          // racket.position.fromArray([x, y, z])
+        }
       }
-      const racket = rackets.get(id)!
-
-      {
-        const [x, y, z, w] = playerData.rotation
-        // flip y and z based on how we interpret them.
-        const quaternion = racket.quaternion.fromArray([x, z, y, w]).invert()
-        // reverse the X and Y rotation,
-        // which means mirror the XY plane (negation of the Z and W values).
-        quaternion.z *= -1
-        quaternion.w *= -1
-      }
-
-      {
-        const [x, y, z] = playerData.position.map(i => i * 2000)
-        // racket.position.fromArray([x, y, z])
-        // racket.position.fromArray([x, y, z])
-      }
-
     })
   })
 

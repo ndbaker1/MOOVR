@@ -1,7 +1,7 @@
 import "../styles/globals.css";
-import type { AppType } from "next/dist/shared/lib/utils";
 import Head from "next/head";
 import { MantineProvider } from "@mantine/core";
+import type { AppType } from "next/dist/shared/lib/utils";
 
 const MyApp: AppType = ({ Component, pageProps }) => {
   return (
@@ -35,7 +35,7 @@ const MyApp: AppType = ({ Component, pageProps }) => {
       </Head>
       <Component {...pageProps} />
     </MantineProvider>
-  )
+  );
 };
 
 export default MyApp;

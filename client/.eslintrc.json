@@ -1,3 +1,16 @@
 {
-  "extends": ["next/core-web-vitals"]
+  "extends": [
+    "next/core-web-vitals"
+  ],
+  "ignorePatterns": [
+    "out",
+    "public"
+  ],
+  "rules": {
+    "semi": "error",
+    "semi-style": [
+      "error",
+      "last"
+    ]
+  }
 }

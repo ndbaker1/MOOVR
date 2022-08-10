@@ -87,11 +87,17 @@ const Home = () => {
                           setRacketClientLoading(true);
                           const newRacketClient = new RacketClient(i, webSocketHost, {
                             openCallback: () => {
-                              setRacketClient(client => {
-                                if (client) { client.ws.close(); }
+                              const updateClient = () => {
+                                setRacketClient(newRacketClient);
                                 setRacketClientLoading(false);
-                                return newRacketClient;
-                              });
+                              };
+
+                              if (racketClient) {
+                                racketClient.ws.addEventListener('close', updateClient);
+                                racketClient.ws.close();
+                              } else {
+                                updateClient();
+                              }
                             }
                           });
                         }}

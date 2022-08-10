@@ -1,4 +1,3 @@
-
 export type WebSocketConfig = {
     path: string,
     host: string,

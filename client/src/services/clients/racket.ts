@@ -1,4 +1,4 @@
-import { createServerWebSocket, type WebSocketCallbacks } from "../connection";
+import { type WebSocketCallbacks, createServerWebSocket } from "../connection";
 import { startAccelerometer, startOrientationTracker } from "../sensors";
 import type { ChangeData } from "../data";
 

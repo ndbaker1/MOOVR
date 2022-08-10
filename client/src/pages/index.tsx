@@ -1,10 +1,12 @@
-import { ActionIcon, Button, Dialog, Drawer, Group, Loader, Menu, SimpleGrid, Stack, TextInput, Tooltip } from "@mantine/core";
-import Editor from "@monaco-editor/react";
-import { ObserverClient, RacketClient } from "@services/clients";
 import React from "react";
+import Editor from "@monaco-editor/react";
 import { AccessPoint, FileArrowLeft } from "tabler-icons-react";
+import { ActionIcon, Button, Dialog, Drawer, Group, Loader, Menu, SimpleGrid, Stack, TextInput, Tooltip } from "@mantine/core";
+
 import * as THREE from 'three';
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader";
+
+import { ObserverClient, RacketClient } from "@services/clients";
 import { BASE_PATH, WS_HOST } from "../../environment";
 
 

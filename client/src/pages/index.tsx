@@ -9,12 +9,16 @@ import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader";
 import { ObserverClient, RacketClient } from "@services/clients";
 import { BASE_PATH, WS_HOST } from "../../environment";
 
+declare global {
+  function debug(): void;
+}
 
 const Home = () => {
   const [debug, setDebug] = React.useState(false);
   const [showEditor, setShowEditor] = React.useState(false);
   const [renderCode, setRenderCode] = React.useState(baseRenderCode);
-  React.useEffect(() => { setDebug(!!sessionStorage.getItem('debug')); }, []);
+  // attach the debug caller to the window object
+  React.useEffect(() => { window.debug = () => setDebug(true); }, []);
 
   const [racketClient, setRacketClient] = React.useState<RacketClient>();
   const [racketClientLoading, setRacketClientLoading] = React.useState(false);
@@ -160,7 +164,6 @@ type RenderParameters = {
   code?: string
 }
 
-
 async function loadMeshes() {
 
   const loader = new OBJLoader();
@@ -171,6 +174,7 @@ async function loadMeshes() {
   racketMesh.material = new THREE.MeshNormalMaterial();
 
   const ballMesh = models.children[0] as THREE.Mesh;
+  ballMesh.material = new THREE.MeshNormalMaterial();
 
   return {
     racketMesh,

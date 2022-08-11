@@ -222,21 +222,8 @@ async function initObserverView(parameters: RenderParameters, observerClient: Ob
         }
         const racket = rackets.get(id)!;
 
-        {
-          const [x, y, z, w] = playerData.rotation;
-          // flip y and z based on how we interpret them.
-          const quaternion = racket.quaternion.fromArray([x, z, y, w]).invert();
-          // reverse the X and Y rotation,
-          // which means mirror the XY plane (negation of the Z and W values).
-          quaternion.z *= -1;
-          quaternion.w *= -1;
-        }
-
-        {
-          const [x, y, z] = playerData.position.map(i => i * 2000);
-          // racket.position.fromArray([x, y, z])
-          // racket.position.fromArray([x, y, z])
-        }
+        racket.quaternion.fromArray(playerData.rotation);
+        racket.position.fromArray(playerData.position.map(i => i * 2000));
       }
     });
   });
@@ -255,19 +242,6 @@ if (!rackets.has(id)) {
 }
 const racket = rackets.get(id)
 
-{
-  const [x, y, z, w] = playerData.rotation
-  // flip y and z based on how we interpret them.
-  const quaternion = racket.quaternion.fromArray([x, z, y, w]).invert()
-  // reverse the X and Y rotation,
-  // which means mirror the XY plane (negation of the Z and W values).
-  quaternion.z *= -1
-  quaternion.w *= -1
-}
-
-{
-  const [x, y, z] = playerData.position.map(i => i * 2000)
-  // racket.position.fromArray([x, y, z])
-  // racket.position.fromArray([x, y, z])
-}
+racket.quaternion.fromArray(playerData.rotation)
+racket.position.fromArray(playerData.position.map(i => i * 2000))
 `;

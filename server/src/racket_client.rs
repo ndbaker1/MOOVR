@@ -78,7 +78,7 @@ impl RacketClientHandler {
                     // TODO - fix drift
                     // if acceleration is low, then maybe we can assume the object is stopped
                     for i in 0..3 {
-                        if acceleration_update[i] > 0.1 || acceleration_update[i] < -0.1 {
+                        if acceleration_update[i] < 0.1 && acceleration_update[i] > -0.1 {
                             velocity_update[i] *= 0.7;
                         }
                     }

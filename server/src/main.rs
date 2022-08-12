@@ -27,22 +27,30 @@ type Vec3 = [f64; 3];
 
 #[derive(Deserialize, Debug)]
 #[serde(tag = "type", content = "data")]
-enum ChangeData {
+enum PhysicsUpdate {
     Rotation(Quaternion),
     Acceleration(Vec3),
 }
 
 #[derive(Debug, Default, Serialize)]
-pub struct PlayerData {
-    /// 3D coordinate of the player
+pub struct MotionData {
+    /// 3D coordinate of the object
     position: Vec3,
+    /// 3D velocity of the object
+    #[serde(skip)]
     velocity: Vec3,
+    /// 3D acceleration of the object
+    #[serde(skip)]
     acceleration: Vec3,
-    /// measures in 180 degrees
+    /// Rotation of the object measured in quaternions
     rotation: Quaternion,
+    /// Rotation of the object's previous frame
+    /// Used to track change in rotation for accelerometer adjustments
+    #[serde(skip)]
+    prev_rotation: Quaternion,
 }
 
-type ServerState = HashMap<usize, PlayerData>;
+type ServerState = HashMap<usize, MotionData>;
 
 struct Server;
 

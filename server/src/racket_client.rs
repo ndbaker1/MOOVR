@@ -6,7 +6,7 @@ use std::{
 
 use tungstenite::{Message, WebSocket};
 
-use crate::{ChangeData, PlayerData, ServerState};
+use crate::{MotionData, PhysicsUpdate, ServerState};
 
 pub struct RacketClientHandler {
     data: Arc<Mutex<ServerState>>,
@@ -26,7 +26,7 @@ impl RacketClientHandler {
             // continue processing requests from the connection
             while let Ok(message) = websocket_stream.read_message() {
                 match message {
-                    Message::Text(text) => match serde_json::from_str::<ChangeData>(&text) {
+                    Message::Text(text) => match serde_json::from_str::<PhysicsUpdate>(&text) {
                         Ok(ref client_data) => {
                             client.handle_client_data(client_data, Self::DELTA);
                         }
@@ -46,19 +46,20 @@ impl RacketClientHandler {
         });
     }
 
-    fn handle_client_data(&mut self, client_data: &ChangeData, delta: f64) {
+    fn handle_client_data(&mut self, client_data: &PhysicsUpdate, delta: f64) {
         if let Ok(mut data) = self.data.lock() {
-            let PlayerData {
+            let MotionData {
                 ref mut position,
-                ref mut rotation,
                 ref mut velocity,
                 ref mut acceleration,
+                ref mut rotation,
+                ref mut prev_rotation,
             } = data
                 .entry(self.user)
-                .or_insert_with(|| PlayerData::default());
+                .or_insert_with(|| MotionData::default());
 
             match &client_data {
-                ChangeData::Acceleration(client_acceleration) => {
+                PhysicsUpdate::Acceleration(client_acceleration) => {
                     const SCALING_FACTOR: f64 = 750.0;
                     let acceleration_update = quaternion::rotate_vector(
                         (rotation[3], [rotation[0], rotation[1], rotation[2]]),
@@ -76,11 +77,13 @@ impl RacketClientHandler {
                         velocity[2] + (acceleration[2] + acceleration_update[2]) * 0.5 * delta,
                     ];
 
-                    // TODO - fix drift
-                    // if acceleration is low, then maybe we can assume the object is stopped
-                    for i in 0..3 {
-                        if acceleration_update[i] < 75.0 && acceleration_update[i] > -75.0 {
-                            velocity_update[i] *= 0.7;
+                    // Temporary dampening logic
+                    if acceleration_update
+                        .into_iter()
+                        .all(|f| f < 100.0 && f > -100.0)
+                    {
+                        for vel_comp in &mut velocity_update {
+                            *vel_comp *= 0.8;
                         }
                     }
 
@@ -92,7 +95,9 @@ impl RacketClientHandler {
                     *velocity = velocity_update;
                     *acceleration = acceleration_update;
                 }
-                ChangeData::Rotation([x, y, z, w]) => {
+                PhysicsUpdate::Rotation([x, y, z, w]) => {
+                    // track the rotation from our last frame
+                    prev_rotation.copy_from_slice(rotation);
                     // flip y and z based on how we interpret them.
                     // reverse the X and Y rotation,
                     // which means mirror the XY plane (negation of the Z and W values).

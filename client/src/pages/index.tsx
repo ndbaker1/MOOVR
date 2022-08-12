@@ -148,8 +148,13 @@ const Home = () => {
   );
 };
 
-function useHost(defaultHost: string) {
+function useHost(defaultHostInput: string) {
+  // Load the websocket url from localstorage first
+  const LOCAL_STOAGE_WS_NAME = 'ppws';
+  const [defaultHost, setDefaultHost] = React.useState(defaultHostInput);
   const [host, setHost] = React.useState('');
+  // load the last saved item into the default value
+  React.useEffect(() => setDefaultHost(localStorage.getItem(LOCAL_STOAGE_WS_NAME) ?? host), [host]);
   // replace everything before the '://' part of the url, and remove trailing '/'
   const webSocketHost = (host || defaultHost).replaceAll(/.*:\/\/|\/$/gi, '');
   return { host, setHost, webSocketHost };

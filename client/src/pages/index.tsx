@@ -8,6 +8,7 @@ import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader";
 
 import { ObserverClient, RacketClient } from "@services/clients";
 import { BASE_PATH, WS_HOST } from "../../environment";
+import type { PlayerData } from "@services/data";
 
 declare global {
   function debug(): void;
@@ -202,28 +203,31 @@ async function initObserverView(parameters: RenderParameters, observerClient: Ob
     throw Error('failed to replace screen with renderer.');
   }
 
-  const customRender = new Function('id', 'playerData', 'rackets', 'racketMesh', 'scene', parameters.code ?? '');
-  // animation
-  observerClient.ws.addEventListener('message', ({ data }) => {
-    const playerDatas = ObserverClient.asPlayerData(data);
+  // Renderer to run for the client,
+  // which can be custom edited from the debug window of the app
+  const observerRender: (playerData: PlayerData, racket: THREE.Mesh) => void = parameters.code ?
+    new Function('playerData', 'racket', parameters.code) as any
+    : (playerData, racket) => {
+      racket.quaternion.fromArray(playerData.rotation);
+      racket.position.fromArray(playerData.position);
+    };
 
-    Object.entries(playerDatas).forEach(([id, playerData]) => {
-      if (parameters.code) {
-        customRender(id, playerData, rackets, racketMesh, scene);
-      } else {
-        // logic for adding new meshes when a new player connects
-        if (!rackets.has(id)) {
-          const racket = racketMesh.clone();
-          rackets.set(id, racket);
-          scene.add(racket);
-        }
-        const racket = rackets.get(id)!;
-
-        racket.quaternion.fromArray(playerData.rotation);
-        racket.position.fromArray(playerData.position);
+  // Update the geometry of the scene using PlayerData
+  const update = (updates: Record<string, PlayerData>) => {
+    Object.entries(updates).forEach(([id, playerData]) => {
+      // logic for adding new meshes when a new player connects
+      if (!rackets.has(id)) {
+        const racket = racketMesh.clone();
+        rackets.set(id, racket);
+        scene.add(racket);
       }
+
+      observerRender(playerData, rackets.get(id)!);
     });
-  });
+  };
+
+  // Trigger scene update upon each message recieved from the server
+  observerClient.ws.addEventListener('message', ({ data }) => update(ObserverClient.asPlayerData(data)));
 
   function animation(time: number) {
     renderer.render(scene, camera);
@@ -231,14 +235,6 @@ async function initObserverView(parameters: RenderParameters, observerClient: Ob
 }
 
 const baseRenderCode = `
-// logic for adding new meshes when a new player connects
-if (!rackets.has(id)) {
-  const racket = racketMesh.clone()
-  rackets.set(id, racket)
-  scene.add(racket)
-}
-const racket = rackets.get(id)
-
 racket.quaternion.fromArray(playerData.rotation)
 racket.position.fromArray(playerData.position)
 `;

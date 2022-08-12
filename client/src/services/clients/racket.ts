@@ -10,7 +10,9 @@ export class RacketClient {
     if (!('AbsoluteOrientationSensor' in window)) { throw alert("AbsoluteOrientationSensor not supported"); }
 
     this.ws = createServerWebSocket({ host, path: `/racket/${id}`, ...callbacks });
+  }
 
+  public async initSensors() {
     const send = (data: ChangeData) => {
       if (this.ws.readyState === this.ws.CLOSING || this.ws.readyState === this.ws.CLOSED) {
         throw Error('connection closed');
@@ -21,7 +23,12 @@ export class RacketClient {
       }
     };
 
-    startAccelerometer(send);
-    startOrientationTracker(send);
+    const killHandles = [
+      await startAccelerometer(send),
+      await startOrientationTracker(send),
+    ];
+
+    this.ws.addEventListener('error', () => killHandles.forEach(kill => kill()));
+    this.ws.addEventListener('close', () => killHandles.forEach(kill => kill()));
   }
 }

@@ -89,21 +89,18 @@ const Home = () => {
                         size="xl"
                         onClick={() => {
                           setRacketClientLoading(true);
-                          const newRacketClient = new RacketClient(i, webSocketHost, {
-                            openCallback: () => {
-                              const updateClient = () => {
-                                setRacketClient(newRacketClient);
-                                setRacketClientLoading(false);
-                              };
-
-                              if (racketClient) {
-                                racketClient.ws.addEventListener('close', updateClient);
-                                racketClient.ws.close();
-                              } else {
-                                updateClient();
-                              }
-                            }
-                          });
+                          const updateRacketClient = () => {
+                            const client = new RacketClient(i, webSocketHost, {});
+                            client.initSensors();
+                            setRacketClient(client);
+                            setRacketClientLoading(false);
+                          };
+                          if (racketClient) {
+                            racketClient.ws.addEventListener('close', updateRacketClient);
+                            racketClient.ws.close();
+                          } else {
+                            updateRacketClient();
+                          }
                         }}
                       >
                         {i}
@@ -186,7 +183,7 @@ async function loadMeshes() {
 async function initObserverView(parameters: RenderParameters, observerClient: ObserverClient) {
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 0.1, 10000);
-  camera.position.set(-500, 0, 0);
+  camera.position.set(-1000, 0, 0);
   camera.lookAt(0, 0, 0);
 
   const { ballMesh, racketMesh } = await loadMeshes();
@@ -223,7 +220,7 @@ async function initObserverView(parameters: RenderParameters, observerClient: Ob
         const racket = rackets.get(id)!;
 
         racket.quaternion.fromArray(playerData.rotation);
-        racket.position.fromArray(playerData.position.map(i => i * 2000));
+        racket.position.fromArray(playerData.position);
       }
     });
   });
@@ -243,5 +240,5 @@ if (!rackets.has(id)) {
 const racket = rackets.get(id)
 
 racket.quaternion.fromArray(playerData.rotation)
-racket.position.fromArray(playerData.position.map(i => i * 2000))
+racket.position.fromArray(playerData.position)
 `;

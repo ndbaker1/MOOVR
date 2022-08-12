@@ -1,5 +1,5 @@
-import { WebSocketCallbacks, createServerWebSocket } from "../connection";
-import { PlayerData } from "../data";
+import { type WebSocketCallbacks, createServerWebSocket } from "../connection";
+import type { PlayerData } from "../data";
 
 export class ObserverClient {
     public ws: WebSocket;

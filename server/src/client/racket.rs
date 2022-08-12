@@ -6,30 +6,33 @@ use std::{
 
 use tungstenite::{Message, WebSocket};
 
-use crate::{MotionData, PhysicsUpdate, ServerState};
+use crate::{MotionData, PhysicsUpdate, PositionData, ServerState};
 
 pub struct RacketClientHandler {
-    data: Arc<Mutex<ServerState>>,
+    position_data: Arc<Mutex<ServerState>>,
+    motion_data: MotionData,
     user: usize,
 }
 impl RacketClientHandler {
     pub const NAME: &'static str = "racket";
-    pub const DELTA: f64 = 1f64 / 60f64;
 
     pub fn run(
-        data: Arc<Mutex<ServerState>>,
+        position_data: Arc<Mutex<ServerState>>,
         user: usize,
         mut websocket_stream: WebSocket<TcpStream>,
     ) {
-        let mut client = Self { data, user };
+        let mut client = Self {
+            position_data,
+            user,
+            motion_data: MotionData::default(),
+        };
+
         thread::spawn(move || {
             // continue processing requests from the connection
             while let Ok(message) = websocket_stream.read_message() {
                 match message {
                     Message::Text(text) => match serde_json::from_str::<PhysicsUpdate>(&text) {
-                        Ok(ref client_data) => {
-                            client.handle_client_data(client_data, Self::DELTA);
-                        }
+                        Ok(ref client_data) => client.update(client_data, super::DELTA),
                         Err(e) => log::error!("[{}]", e),
                     },
                     Message::Binary(data) => log::info!("binary [{:?}]", data),
@@ -46,17 +49,20 @@ impl RacketClientHandler {
         });
     }
 
-    fn handle_client_data(&mut self, client_data: &PhysicsUpdate, delta: f64) {
-        if let Ok(mut data) = self.data.lock() {
-            let MotionData {
+    fn update(&mut self, client_data: &PhysicsUpdate, delta: f64) {
+        if let Ok(mut data) = self.position_data.lock() {
+            let PositionData {
                 ref mut position,
-                ref mut velocity,
-                ref mut acceleration,
                 ref mut rotation,
-                ref mut prev_rotation,
             } = data
                 .entry(self.user)
-                .or_insert_with(|| MotionData::default());
+                .or_insert_with(|| PositionData::default());
+
+            let MotionData {
+                ref mut velocity,
+                ref mut acceleration,
+                ref mut prev_rotation,
+            } = self.motion_data;
 
             match &client_data {
                 PhysicsUpdate::Acceleration(client_acceleration) => {
@@ -109,6 +115,6 @@ impl RacketClientHandler {
 
     fn cleanup_client(&mut self) {
         // remove the user data once they disconnect
-        self.data.lock().unwrap().remove(&self.user);
+        self.position_data.lock().unwrap().remove(&self.user);
     }
 }

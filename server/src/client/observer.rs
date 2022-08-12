@@ -7,14 +7,12 @@ use std::{
 
 use tungstenite::{Message, WebSocket};
 
-use crate::{racket_client::RacketClientHandler, ServerState};
-
-pub struct ObserverClientHandler;
-impl ObserverClientHandler {
+pub struct ObserverClientManager;
+impl ObserverClientManager {
     pub const NAME: &'static str = "observer";
 
     pub fn run(
-        data: Arc<Mutex<ServerState>>,
+        data: Arc<Mutex<crate::ServerState>>,
         observers: Arc<Mutex<Vec<(usize, WebSocket<TcpStream>)>>>,
     ) {
         thread::spawn(move || loop {
@@ -36,7 +34,9 @@ impl ObserverClientHandler {
             }
 
             // sleep for 60 seconds to prevent resource starvation
-            thread::sleep(Duration::from_secs_f64(RacketClientHandler::DELTA));
+            thread::sleep(Duration::from_secs_f64(super::DELTA));
         });
     }
 }
+
+pub struct ObserverClientHandler;

@@ -6,9 +6,10 @@ import { ActionIcon, Button, Dialog, Drawer, Group, Loader, Menu, SimpleGrid, St
 import * as THREE from 'three';
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader";
 
-import { ObserverClient, RacketClient } from "@services/clients";
-import { BASE_PATH, WS_HOST } from "../../environment";
+import { EyeClient, RacketClient, ObserverClient } from "@services/clients";
 import type { PlayerData } from "@services/data";
+
+import { BASE_PATH, WS_HOST } from "../../environment";
 
 declare global {
   function debug(): void;
@@ -17,14 +18,14 @@ declare global {
 const Home = () => {
   const [debug, setDebug] = React.useState(false);
   const [showEditor, setShowEditor] = React.useState(false);
-  const [renderCode, setRenderCode] = React.useState(baseRenderCode);
+  const [renderCode, setRenderCode] = React.useState('');
   // attach the debug caller to the window object
   React.useEffect(() => { window.debug = () => setDebug(true); }, []);
 
   const [racketClient, setRacketClient] = React.useState<RacketClient>();
   const [racketClientLoading, setRacketClientLoading] = React.useState(false);
-  const [observerClient, setObserverClient] = React.useState<ObserverClient>();
-  const [observerClientLoading, setObserverClientLoading] = React.useState(false);
+  const [eyeClient, setEyeClient] = React.useState<EyeClient>();
+  const [eyeClientLoading, setEyeClientLoading] = React.useState(false);
 
   const { host, setHost, webSocketHost } = useHost(WS_HOST);
 
@@ -39,29 +40,30 @@ const Home = () => {
             <Menu shadow="md">
               <Menu.Target>
                 <Button>
-                  {observerClientLoading
+                  {eyeClientLoading
                     ? <Loader color={"white"} size={"sm"} />
-                    : observerClient ? `Observer ${observerClient.id}` : "Connect Observer"
+                    : eyeClient ? `View ${eyeClient.id + 1}` : "Connect View"
                   }
                 </Button>
               </Menu.Target>
               <Menu.Dropdown>
                 <SimpleGrid cols={3}>
-                  {Array(9).fill(0).map((_, i) =>
+                  {Array(4).fill(0).map((_, i) => i*3 + 2).map(i =>
                     <Group grow key={i}>
                       <ActionIcon
                         size="xl"
                         onClick={() => {
-                          setObserverClientLoading(true);
+                          setEyeClientLoading(true);
                           const updateObserverClient = () => {
-                            const client = new ObserverClient(i, webSocketHost, {});
-                            initObserverView({ code: renderCode }, client);
-                            setObserverClient(client);
-                            setObserverClientLoading(false);
+                            const client = new EyeClient(i - 1, { host: webSocketHost, callbacks: {} });
+                            client.initSensors();
+                            initObserverView({ code: renderCode }, new ObserverClient(i, { host: webSocketHost, callbacks: {} }));
+                            setEyeClient(client);
+                            setEyeClientLoading(false);
                           };
-                          if (observerClient) {
-                            observerClient.ws.addEventListener('close', updateObserverClient);
-                            observerClient.ws.close();
+                          if (eyeClient && eyeClient.ws.readyState !== WebSocket.CLOSED) {
+                            eyeClient.ws.addEventListener('close', updateObserverClient);
+                            eyeClient.ws.close();
                           } else {
                             updateObserverClient();
                           }
@@ -86,19 +88,19 @@ const Home = () => {
               </Menu.Target>
               <Menu.Dropdown>
                 <SimpleGrid cols={3}>
-                  {Array(9).fill(0).map((_, i) =>
+                  {Array(4).fill(0).map((_, i) => i*3).map(i =>
                     <Group grow key={i}>
                       <ActionIcon
                         size="xl"
                         onClick={() => {
                           setRacketClientLoading(true);
                           const updateRacketClient = () => {
-                            const client = new RacketClient(i, webSocketHost, {});
+                            const client = new RacketClient(i, { host: webSocketHost, callbacks: {} });
                             client.initSensors();
                             setRacketClient(client);
                             setRacketClientLoading(false);
                           };
-                          if (racketClient) {
+                          if (racketClient && racketClient.ws.readyState !== WebSocket.CLOSED) {
                             racketClient.ws.addEventListener('close', updateRacketClient);
                             racketClient.ws.close();
                           } else {
@@ -150,15 +152,15 @@ const Home = () => {
   );
 };
 
+export default Home;
+
+
 function useHost(defaultHostInput: string) {
   const [host, setHost] = React.useState('');
   // replace everything before the '://' part of the url, and remove trailing '/'
   const webSocketHost = (host || defaultHostInput).replaceAll(/.*:\/\/|\/$/gi, '');
   return { host, setHost, webSocketHost };
 }
-
-export default Home;
-
 
 type RenderParameters = {
   code?: string
@@ -167,33 +169,54 @@ type RenderParameters = {
 async function loadMeshes() {
 
   const loader = new OBJLoader();
+  const material = new THREE.MeshNormalMaterial();
 
-  const models = await loader.loadAsync(`${BASE_PATH}/assets/phone-pong.obj`);
+  const groups = await Promise.all([
+    loader.loadAsync(`${BASE_PATH}/assets/models.obj`),
+    loader.loadAsync(`${BASE_PATH}/assets/table.obj`),
+  ]);
 
-  const racketMesh = models.children[1] as THREE.Mesh;
-  racketMesh.material = new THREE.MeshNormalMaterial();
+  for (const group of groups) {
+    group.traverse(obj => obj instanceof THREE.Mesh && (obj.material = material));
+  }
+  const [objectGroup, tableGroup] = groups;
 
-  const ballMesh = models.children[0] as THREE.Mesh;
-  ballMesh.material = new THREE.MeshNormalMaterial();
+  const ballMesh = objectGroup.getObjectByName('ball') as THREE.Mesh;
+  const racketMesh = objectGroup.getObjectByName('racket') as THREE.Mesh;
+  const headMesh = objectGroup.getObjectByName('head') as THREE.Mesh;
 
   return {
-    racketMesh,
     ballMesh,
+    racketMesh,
+    headMesh,
+    tableGroup,
   };
 }
 
 
 async function initObserverView(parameters: RenderParameters, observerClient: ObserverClient) {
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 0.1, 10000);
-  camera.position.set(-1000, 0, 0);
+
+  const camera = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 0.1, 1000);
+  camera.position.set(2, 0, 0);
   camera.lookAt(0, 0, 0);
 
-  const { ballMesh, racketMesh } = await loadMeshes();
+  const { ballMesh, tableGroup, racketMesh, headMesh } = await loadMeshes();
 
+  scene.add(tableGroup);
+  // scene.add(ballMesh);
   // get ball geometry
   // const geometry = new THREE.SphereGeometry(0.2, 20, 20);
-  const rackets = new Map<string, THREE.Mesh>();
+  const meshes = new Map<number, THREE.Mesh>();
+  const createMesh = (id: number) => {
+    if (id % 3 == 0) {
+      return racketMesh.clone();
+    } else if (id % 3 == 1) {
+      return headMesh.clone();
+    } else {
+      throw new Error('dont recieve events from observers');
+    }
+  };
 
   const renderer = new THREE.WebGLRenderer();
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -207,36 +230,42 @@ async function initObserverView(parameters: RenderParameters, observerClient: Ob
 
   // Renderer to run for the client,
   // which can be custom edited from the debug window of the app
-  const observerRender: (playerData: PlayerData, racket: THREE.Mesh) => void = parameters.code ?
-    new Function('playerData', 'racket', parameters.code) as any
-    : (playerData, racket) => {
-      racket.quaternion.fromArray(playerData.rotation);
-      racket.position.fromArray(playerData.position);
+  const observerRender: (id: number, playerData: PlayerData, object?: THREE.Mesh) => void = !!parameters.code
+    ? new Function('id', 'playerData', 'object', parameters.code) as any
+    : (id, playerData, object) => {
+      if (id == observerClient.id - 1) {
+        camera.quaternion.fromArray(playerData.rotation);
+        camera.position.fromArray(playerData.position);
+      } else {
+        if (object) {
+          object.quaternion.fromArray(playerData.rotation);
+          object.position.fromArray(playerData.position);
+        } else {
+          console.error(`no mesh provided for body that needs to be drawn with id [${id}]`);
+        }
+      }
     };
 
   // Update the geometry of the scene using PlayerData
   const update = (updates: Record<string, PlayerData>) => {
-    Object.entries(updates).forEach(([id, playerData]) => {
+    Object.entries(updates).forEach(([idKey, playerData]) => {
+      const id = parseInt(idKey);
       // logic for adding new meshes when a new player connects
-      if (!rackets.has(id)) {
-        const racket = racketMesh.clone();
-        rackets.set(id, racket);
-        scene.add(racket);
+      if (!meshes.has(id) && observerClient.id != id) {
+        const mesh = createMesh(id);
+        meshes.set(id, mesh);
+        scene.add(mesh);
+        console.log('created mesh for id', id);
       }
 
-      observerRender(playerData, rackets.get(id)!);
+      observerRender(id, playerData, meshes.get(id)!);
     });
   };
 
   // Trigger scene update upon each message recieved from the server
-  observerClient.ws.addEventListener('message', ({ data }) => update(ObserverClient.asPlayerData(data)));
+  observerClient.ws.addEventListener('message', ({ data }) => update(EyeClient.asPlayerData(data)));
 
   function animation(time: number) {
     renderer.render(scene, camera);
   }
 }
-
-const baseRenderCode = `
-racket.quaternion.fromArray(playerData.rotation)
-racket.position.fromArray(playerData.position)
-`;

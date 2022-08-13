@@ -1,4 +1,5 @@
-use serde::{Deserialize, Serialize};
+use client::dynamic::{Quaternion, Vec3};
+use serde::Serialize;
 use std::{
     collections::HashMap,
     env,
@@ -8,7 +9,10 @@ use std::{
 
 use tungstenite::{accept_hdr, handshake::server::Request};
 
-use crate::client::{observer::ObserverClientManager, racket::RacketClientHandler};
+use crate::client::{
+    dynamic::{DynamicClient, FrameType},
+    observer::ObserverClientManager,
+};
 
 mod client;
 
@@ -21,16 +25,6 @@ fn main() {
     Server::serve(&format!("0.0.0.0:{}", port));
 }
 
-type Quaternion = [f64; 4];
-type Vec3 = [f64; 3];
-
-#[derive(Deserialize, Debug)]
-#[serde(tag = "type", content = "data")]
-enum PhysicsUpdate {
-    Rotation(Quaternion),
-    Acceleration(Vec3),
-}
-
 #[derive(Debug, Default, Serialize)]
 pub struct PositionData {
     /// 3D coordinate of the object
@@ -39,18 +33,11 @@ pub struct PositionData {
     rotation: Quaternion,
 }
 
-#[derive(Debug, Default)]
-pub struct MotionData {
-    /// 3D velocity of the object
-    velocity: Vec3,
-    /// 3D acceleration of the object
-    acceleration: Vec3,
-    /// Rotation of the object's previous frame
-    /// Used to track change in rotation for accelerometer adjustments
-    prev_rotation: Quaternion,
-}
-
 type ServerState = HashMap<usize, PositionData>;
+
+const RACKET_PATH: &'static str = "racket";
+const HEAD_PATH: &'static str = "head";
+const OBSERVER_PATH: &'static str = "observer";
 
 struct Server;
 
@@ -86,11 +73,15 @@ impl Server {
                             .parse()
                             .expect("connections need a user index.");
 
-                        if url.starts_with(RacketClientHandler::NAME) {
+                        if url.starts_with(RACKET_PATH) {
                             log::info!("spawning racket client with id [{}].", user);
-                            RacketClientHandler::run(data.clone(), user, websocket_stream);
-                        } else if url.starts_with(ObserverClientManager::NAME) {
-                            log::info!("spawning observer client with id [{}].", user);
+                            DynamicClient::new(user, data.clone(), FrameType::Racket)
+                                .handle(websocket_stream);
+                        } else if url.starts_with(HEAD_PATH) {
+                            log::info!("spawning head client with id [{}].", user);
+                            DynamicClient::new(user, data.clone(), FrameType::Viewer)
+                                .handle(websocket_stream);
+                        } else if url.starts_with(OBSERVER_PATH) {
                             // observer websockets will be added to a Vec that way each does client doesn't try to acquire a lock to the data mutex.
                             // the master client handler will lock data once and send it through all of the websockets.
                             observers

@@ -1,17 +1,7 @@
-import { type WebSocketCallbacks, createServerWebSocket } from "../connection";
-import type { PlayerData } from "../data";
+import { DynamicClient, type DynamicClientParameters } from "./dynamic";
 
-export class ObserverClient {
-    public ws: WebSocket;
-
-    constructor(public id: number, host: string, callbacks: WebSocketCallbacks) {
-        this.ws = createServerWebSocket({ host, path: `/observer/${id}`, ...callbacks });
-    }
-
-    public static asPlayerData(data: unknown): Record<number, PlayerData> {
-        if (typeof data === 'string') {
-            return JSON.parse(data);
-        }
-        throw Error('invalid data');
+export class ObserverClient extends DynamicClient {
+    constructor(id: number, params: DynamicClientParameters) {
+       super(id, params, 'observer');
     }
 }

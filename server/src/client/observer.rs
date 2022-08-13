@@ -9,8 +9,6 @@ use tungstenite::{Message, WebSocket};
 
 pub struct ObserverClientManager;
 impl ObserverClientManager {
-    pub const NAME: &'static str = "observer";
-
     pub fn run(
         data: Arc<Mutex<crate::ServerState>>,
         observers: Arc<Mutex<Vec<(usize, WebSocket<TcpStream>)>>>,

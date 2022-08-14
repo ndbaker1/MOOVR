@@ -1,0 +1,5 @@
+[alias]
+dev = ["watch", "-x", "run --release"]
+
+[env]
+RUST_LOG = "info"

@@ -36,5 +36,3 @@ impl ObserverClientManager {
         });
     }
 }
-
-pub struct ObserverClientHandler;

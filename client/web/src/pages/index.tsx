@@ -22,6 +22,8 @@ const Home = () => {
   // attach the debug caller to the window object
   React.useEffect(() => { window.debug = () => setDebug(true); }, []);
 
+  const [showControl, setShowControl] = React.useState(true);
+
   const [racketClient, setRacketClient] = React.useState<RacketClient>();
   const [racketClientLoading, setRacketClientLoading] = React.useState(false);
   const [eyeClient, setEyeClient] = React.useState<EyeClient>();
@@ -29,10 +31,54 @@ const Home = () => {
 
   const { host, setHost, webSocketHost } = useHost(WS_HOST);
 
+  const loadObserver = (i: number) => {
+    setEyeClientLoading(true);
+    const updateObserverClient = () => {
+      const client = new EyeClient(i - 1, { host: webSocketHost, callbacks: {} });
+      client.initSensors();
+      initObserverView({ code: renderCode }, new ObserverClient(i, { host: webSocketHost, callbacks: {} }));
+      setEyeClient(client);
+      setEyeClientLoading(false);
+    };
+    if (eyeClient && eyeClient.ws.readyState !== WebSocket.CLOSED) {
+      eyeClient.ws.addEventListener('close', updateObserverClient);
+      eyeClient.ws.close();
+    } else {
+      updateObserverClient();
+    }
+  };
+
+  const loadRacket = (i: number) => {
+    setRacketClientLoading(true);
+    const updateRacketClient = () => {
+      const client = new RacketClient(i, { host: webSocketHost, callbacks: {} });
+      client.initSensors();
+      setRacketClient(client);
+      setRacketClientLoading(false);
+    };
+    if (racketClient && racketClient.ws.readyState !== WebSocket.CLOSED) {
+      racketClient.ws.addEventListener('close', updateRacketClient);
+      racketClient.ws.close();
+    } else {
+      updateRacketClient();
+    }
+  };
+
+  React.useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const clientType = searchParams.get('client');
+    const id = parseInt(searchParams.get('id') || '');
+    switch (clientType) {
+      case 'racket': loadRacket(id); setShowControl(false); break;
+      case 'observer': loadObserver(id); setShowControl(false); break;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div id="app">
       <Dialog
-        opened={true}
+        opened={showControl}
         size={"min(90vw, 30rem)"} >
         <Stack>
           {debug ? <Button onClick={() => setShowEditor(true)}>Show Editor</Button> : <></>}
@@ -48,26 +94,11 @@ const Home = () => {
               </Menu.Target>
               <Menu.Dropdown>
                 <SimpleGrid cols={3}>
-                  {Array(4).fill(0).map((_, i) => i*3 + 2).map(i =>
+                  {Array(4).fill(0).map((_, i) => i * 3 + 2).map(i =>
                     <Group grow key={i}>
                       <ActionIcon
                         size="xl"
-                        onClick={() => {
-                          setEyeClientLoading(true);
-                          const updateObserverClient = () => {
-                            const client = new EyeClient(i - 1, { host: webSocketHost, callbacks: {} });
-                            client.initSensors();
-                            initObserverView({ code: renderCode }, new ObserverClient(i, { host: webSocketHost, callbacks: {} }));
-                            setEyeClient(client);
-                            setEyeClientLoading(false);
-                          };
-                          if (eyeClient && eyeClient.ws.readyState !== WebSocket.CLOSED) {
-                            eyeClient.ws.addEventListener('close', updateObserverClient);
-                            eyeClient.ws.close();
-                          } else {
-                            updateObserverClient();
-                          }
-                        }}
+                        onClick={() => loadObserver(i)}
                       >
                         {i}
                       </ActionIcon>
@@ -88,25 +119,11 @@ const Home = () => {
               </Menu.Target>
               <Menu.Dropdown>
                 <SimpleGrid cols={3}>
-                  {Array(4).fill(0).map((_, i) => i*3).map(i =>
+                  {Array(4).fill(0).map((_, i) => i * 3).map(i =>
                     <Group grow key={i}>
                       <ActionIcon
                         size="xl"
-                        onClick={() => {
-                          setRacketClientLoading(true);
-                          const updateRacketClient = () => {
-                            const client = new RacketClient(i, { host: webSocketHost, callbacks: {} });
-                            client.initSensors();
-                            setRacketClient(client);
-                            setRacketClientLoading(false);
-                          };
-                          if (racketClient && racketClient.ws.readyState !== WebSocket.CLOSED) {
-                            racketClient.ws.addEventListener('close', updateRacketClient);
-                            racketClient.ws.close();
-                          } else {
-                            updateRacketClient();
-                          }
-                        }}
+                        onClick={() => loadRacket(i)}
                       >
                         {i}
                       </ActionIcon>

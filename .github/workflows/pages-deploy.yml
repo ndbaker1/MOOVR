@@ -15,11 +15,11 @@ jobs:
 
       - name: Install and Build
         run: |
-          cd client
+          cd client/web
           npm ci
           npm run build
 
       - name: Deploy 🚀
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: client/out # The folder the action should deploy.
+          folder: client/web/out # The folder the action should deploy.

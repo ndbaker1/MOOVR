@@ -100,8 +100,7 @@ impl DynamicClient {
                             // see rotation logic, then apply the negated transformation since we have no valid negative 'w' component
                             // undos: *rotation = [-x, -z, y, -w];
                             FrameType::Racket => [x, z, -y],
-                            // undos: *rotation = [-y, z, -x, w];
-                            FrameType::Viewer => [-y, z, -x],
+                            FrameType::Viewer => [x, y, z],
                         },
                     );
 

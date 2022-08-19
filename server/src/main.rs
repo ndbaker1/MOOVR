@@ -65,31 +65,30 @@ impl Server {
                     }) {
                         let url_string = request_uri.unwrap_or_default();
                         let url = url_string.trim_start_matches('/');
-                        let user = url
-                            .split('/')
-                            .collect::<Vec<_>>()
-                            .get(1)
-                            .unwrap()
-                            .parse()
-                            .expect("connections need a user index.");
-
-                        if url.starts_with(RACKET_PATH) {
-                            log::info!("spawning racket client with id [{}].", user);
-                            DynamicClient::new(user, data.clone(), FrameType::Racket)
-                                .handle(websocket_stream);
-                        } else if url.starts_with(HEAD_PATH) {
-                            log::info!("spawning head client with id [{}].", user);
-                            DynamicClient::new(user, data.clone(), FrameType::Viewer)
-                                .handle(websocket_stream);
-                        } else if url.starts_with(OBSERVER_PATH) {
-                            // observer websockets will be added to a Vec that way each does client doesn't try to acquire a lock to the data mutex.
-                            // the master client handler will lock data once and send it through all of the websockets.
-                            observers
-                                .lock()
-                                .expect("add new observer websocket.")
-                                .push((user, websocket_stream));
-                        } else {
-                            log::error!("incomming connection did not provide valid type in url.");
+                        match url.split('/').collect::<Vec<_>>().get(1).unwrap().parse() {
+                            Ok(user) => {
+                                if url.starts_with(RACKET_PATH) {
+                                    log::info!("spawning racket client with id [{}].", user);
+                                    DynamicClient::new(user, data.clone(), FrameType::Racket)
+                                        .handle(websocket_stream);
+                                } else if url.starts_with(HEAD_PATH) {
+                                    log::info!("spawning head client with id [{}].", user);
+                                    DynamicClient::new(user, data.clone(), FrameType::Viewer)
+                                        .handle(websocket_stream);
+                                } else if url.starts_with(OBSERVER_PATH) {
+                                    // observer websockets will be added to a Vec that way each does client doesn't try to acquire a lock to the data mutex.
+                                    // the master client handler will lock data once and send it through all of the websockets.
+                                    observers
+                                        .lock()
+                                        .expect("add new observer websocket.")
+                                        .push((user, websocket_stream));
+                                } else {
+                                    log::error!(
+                                        "incomming connection did not provide valid type in url."
+                                    );
+                                }
+                            }
+                            Err(e) => log::error!("{}", e),
                         }
                     }
                 }

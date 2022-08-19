@@ -4,6 +4,7 @@ use std::{
     thread,
 };
 
+use once_cell::sync::Lazy;
 use serde::Deserialize;
 use tungstenite::{Message, WebSocket};
 
@@ -75,6 +76,12 @@ impl DynamicClient {
     }
 
     fn update(&mut self, client_data: PhysicsUpdate, delta: f64) {
+        let MotionData {
+            ref mut velocity,
+            ref mut acceleration,
+            ref mut prev_rotation,
+        } = self.motion_data;
+
         if let Ok(mut data) = self.position_data.lock() {
             let PositionData {
                 ref mut position,
@@ -82,12 +89,6 @@ impl DynamicClient {
             } = data
                 .entry(self.user)
                 .or_insert_with(|| PositionData::default());
-
-            let MotionData {
-                ref mut velocity,
-                ref mut acceleration,
-                ref mut prev_rotation,
-            } = self.motion_data;
 
             match client_data {
                 PhysicsUpdate::Acceleration([x, y, z]) => {
@@ -143,13 +144,9 @@ impl DynamicClient {
                         }
                         FrameType::Viewer => {
                             // Head Control
-                            let base_camera = quaternion::mul(
-                                // offset the phone so that looking down is not looking straight
-                                quaternion::axis_angle([0.0, 1.0, 0.0], 1.68),
-                                // the phone needs to be rotated in order to use it sideways
-                                quaternion::axis_angle([1.0, 0.0, 0.0], -1.68),
-                            );
-                            let (w, [x, y, z]) = quaternion::mul((w, [x, y, z]), base_camera);
+                            let (w, [x, y, z]) =
+                                quaternion::mul((w, [x, y, z]), *BASE_CAMERA_QUATERNION);
+
                             *rotation = [-y, z, -x, w];
                         }
                     }
@@ -163,3 +160,12 @@ impl DynamicClient {
         self.position_data.lock().unwrap().remove(&self.user);
     }
 }
+
+static BASE_CAMERA_QUATERNION: Lazy<quaternion::Quaternion<f64>> = Lazy::new(|| {
+    quaternion::mul(
+        // offset the phone so that looking down is not looking straight
+        quaternion::axis_angle([0.0, 1.0, 0.0], 1.68),
+        // the phone needs to be rotated in order to use it sideways
+        quaternion::axis_angle([1.0, 0.0, 0.0], -1.68),
+    )
+});

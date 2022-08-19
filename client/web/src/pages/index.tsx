@@ -32,6 +32,7 @@ const Home = () => {
   const { host, setHost, webSocketHost } = useHost(WS_HOST);
 
   const loadObserver = (i: number) => {
+    setShowControl(false);
     setEyeClientLoading(true);
     const updateObserverClient = () => {
       const client = new EyeClient(i - 1, { host: webSocketHost, callbacks: {} });
@@ -49,6 +50,7 @@ const Home = () => {
   };
 
   const loadRacket = (i: number) => {
+    setShowControl(false);
     setRacketClientLoading(true);
     const updateRacketClient = () => {
       const client = new RacketClient(i, { host: webSocketHost, callbacks: {} });
@@ -69,8 +71,8 @@ const Home = () => {
     const clientType = searchParams.get('client');
     const id = parseInt(searchParams.get('id') || '');
     switch (clientType) {
-      case 'racket': loadRacket(id); setShowControl(false); break;
-      case 'observer': loadObserver(id); setShowControl(false); break;
+      case 'racket': loadRacket(id); break;
+      case 'observer': loadObserver(id); break;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

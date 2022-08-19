@@ -33,3 +33,5 @@ The aim of this demo is to make the Virtual Reality experience accessible to any
 - [Improving low-cost inertial-measurement-unit (IMU)-based motion tracking accuracy for a biomorphic hyper-redundant snake robot](https://doi.org/10.1186/s40638-017-0069-z)
 - [Open source IMU and AHRS algorithms](https://x-io.co.uk/open-source-imu-and-ahrs-algorithms/)
 - [Powered by AI: Oculus Insight](https://ai.facebook.com/blog/powered-by-ai-oculus-insight/)
+- [A Hybrid Motion Estimation for Video Stabilization Based on an IMU Sensor](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6111248/)
+- [KLT: An Implementation of the Kanade-Lucas-Tomasi Feature Tracker](https://cecas.clemson.edu/~stb/klt/)

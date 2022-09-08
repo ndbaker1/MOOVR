@@ -1,7 +1,7 @@
 <h2 align="center">
-  🥽 MOOVR
+  🥽 MVR
   <br>
-  More Obtainable Operations for Virtual Reality
+  Minimal Virtual Reality
 </h2>
 
 The aim of this demo is to make the Virtual Reality experience accessible to anyone with a modern smartphone or sensor-enabled device. Table Tennis is a good example for this test, as it only really requires tracking the motion of two components; the user's perspective and racket.

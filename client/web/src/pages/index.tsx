@@ -10,6 +10,8 @@ import { EyeClient, RacketClient, ObserverClient } from "@services/clients";
 import type { PlayerData } from "@services/data";
 
 import { BASE_PATH, WS_HOST } from "../../environment";
+import { Recorder } from "@services/recorder";
+
 
 declare global {
   function debug(): void;
@@ -36,6 +38,7 @@ const Home = () => {
     setEyeClientLoading(true);
     const updateObserverClient = () => {
       const client = new EyeClient(i - 1, { host: webSocketHost, callbacks: {} });
+      Recorder.capture((im) => client.ws.send(im.data));
       client.initSensors();
       initObserverView({ code: renderCode }, new ObserverClient(i, { host: webSocketHost, callbacks: {} }));
       setEyeClient(client);
@@ -54,6 +57,7 @@ const Home = () => {
     setRacketClientLoading(true);
     const updateRacketClient = () => {
       const client = new RacketClient(i, { host: webSocketHost, callbacks: {} });
+      Recorder.capture((im) => client.ws.send(im.data));
       client.initSensors();
       setRacketClient(client);
       setRacketClientLoading(false);
@@ -214,6 +218,7 @@ async function loadMeshes() {
 
 
 async function initObserverView(parameters: RenderParameters, observerClient: ObserverClient) {
+
   const scene = new THREE.Scene();
 
   const camera = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 0.1, 1000);

@@ -25,7 +25,7 @@ export class DynamicClient {
   // wrapper around websocket send to make it more safe.
   public send = (data: string | ArrayBufferLike | Blob | ArrayBufferView) => {
     if (this.ws.readyState === this.ws.CLOSING || this.ws.readyState === this.ws.CLOSED) {
-      throw Error('connection closed');
+      console.error('connection closed');
     }
 
     if (this.ws.readyState === this.ws.OPEN) {

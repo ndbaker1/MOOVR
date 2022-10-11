@@ -38,7 +38,7 @@ const Home = () => {
     setEyeClientLoading(true);
     const updateObserverClient = () => {
       const client = new EyeClient(i - 1, { host: webSocketHost, callbacks: {} });
-      Recorder.capture((im) => client.ws.send(im.data));
+      Recorder.capture((im) => client.send(im.data));
       client.initSensors();
       initObserverView({ code: renderCode }, new ObserverClient(i, { host: webSocketHost, callbacks: {} }));
       setEyeClient(client);
@@ -57,7 +57,7 @@ const Home = () => {
     setRacketClientLoading(true);
     const updateRacketClient = () => {
       const client = new RacketClient(i, { host: webSocketHost, callbacks: {} });
-      Recorder.capture((im) => client.ws.send(im.data));
+      Recorder.capture((im) => client.send(im.data));
       client.initSensors();
       setRacketClient(client);
       setRacketClientLoading(false);

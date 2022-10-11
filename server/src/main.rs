@@ -5,6 +5,7 @@ use std::{
     env,
     net::TcpListener,
     sync::{Arc, Mutex},
+    thread,
 };
 
 use tungstenite::{accept_hdr, handshake::server::Request};
@@ -49,7 +50,10 @@ impl Server {
 
         log::info!("creating handler for observers...");
         let observers = Arc::new(Mutex::new(Vec::new()));
-        ObserverClientManager::run(data.clone(), observers.clone());
+
+        let observers_clone = observers.clone();
+        let data_clone = data.clone();
+        thread::spawn(move || ObserverClientManager::run(data_clone, observers_clone));
 
         log::info!("listening for connections on [{}].", listener_addr);
         loop {
@@ -68,13 +72,19 @@ impl Server {
                         match url.split('/').collect::<Vec<_>>().get(1).unwrap().parse() {
                             Ok(user) => {
                                 if url.starts_with(RACKET_PATH) {
-                                    log::info!("spawning racket client with id [{}].", user);
-                                    DynamicClient::new(user, data.clone(), FrameType::Racket)
-                                        .handle(websocket_stream);
+                                    let data = data.clone();
+                                    thread::spawn(move || {
+                                        log::info!("spawning racket client with id [{}].", user);
+                                        DynamicClient::new(user, data, FrameType::Racket)
+                                            .handle(websocket_stream)
+                                    });
                                 } else if url.starts_with(HEAD_PATH) {
-                                    log::info!("spawning head client with id [{}].", user);
-                                    DynamicClient::new(user, data.clone(), FrameType::Viewer)
-                                        .handle(websocket_stream);
+                                    let data = data.clone();
+                                    thread::spawn(move || {
+                                        log::info!("spawning head client with id [{}].", user);
+                                        DynamicClient::new(user, data, FrameType::Viewer)
+                                            .handle(websocket_stream);
+                                    });
                                 } else if url.starts_with(OBSERVER_PATH) {
                                     // observer websockets will be added to a Vec that way each does client doesn't try to acquire a lock to the data mutex.
                                     // the master client handler will lock data once and send it through all of the websockets.

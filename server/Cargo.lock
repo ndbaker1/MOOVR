@@ -430,7 +430,7 @@ dependencies = [
  "conv",
  "image",
  "itertools",
- "nalgebra",
+ "nalgebra 0.30.1",
  "num",
  "rand 0.7.3",
  "rand_distr",
@@ -566,6 +566,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "nalgebra"
+version = "0.31.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "da388c517f7c8540918d00f7aed9864c1ead01a14a0cc21513b171857119de12"
+dependencies = [
+ "approx",
+ "matrixmultiply",
+ "nalgebra-macros",
+ "num-complex",
+ "num-rational",
+ "num-traits",
+ "simba",
+ "typenum",
+]
+
+[[package]]
+name = "nalgebra-macros"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "01fcc0b8149b4632adc89ac3b7b31a12fb6099a0317a4eb2ebff574ef7de7218"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "nanorand"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -662,9 +689,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.13.1"
+version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "074864da206b4973b84eb91683020dbefd6a8c3f0f38e054d93954e891935e4e"
+checksum = "e82dad04139b71a90c080c8463fe0dc7902db5192d939bd0950f074d014339e1"
 
 [[package]]
 name = "owned_ttf_parser"
@@ -996,12 +1023,12 @@ version = "0.1.0"
 dependencies = [
  "env_logger",
  "image",
- "imageproc",
  "log",
  "once_cell",
  "quaternion",
  "serde",
  "serde_json",
+ "slamr",
  "tungstenite",
 ]
 
@@ -1027,6 +1054,16 @@ dependencies = [
  "num-traits",
  "paste",
  "wide",
+]
+
+[[package]]
+name = "slamr"
+version = "0.1.0"
+dependencies = [
+ "image",
+ "imageproc",
+ "nalgebra 0.31.2",
+ "once_cell",
 ]
 
 [[package]]

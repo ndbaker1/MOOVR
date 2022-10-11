@@ -35,4 +35,3 @@ The aim of this demo is to make the Virtual Reality experience accessible to any
 - [Powered by AI: Oculus Insight](https://ai.facebook.com/blog/powered-by-ai-oculus-insight/)
 - [A Hybrid Motion Estimation for Video Stabilization Based on an IMU Sensor](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6111248/)
 - [KLT: An Implementation of the Kanade-Lucas-Tomasi Feature Tracker](https://cecas.clemson.edu/~stb/klt/)
-- [George Hotz SLAM Livecodeing Session](https://github.com/geohot/twitchslam)

@@ -4,6 +4,7 @@ use std::{
     thread,
 };
 
+use image::{ImageBuffer, Rgba};
 use once_cell::sync::Lazy;
 use serde::Deserialize;
 use tungstenite::{Message, WebSocket};
@@ -15,20 +16,9 @@ pub type Vec3 = [f64; 3];
 
 #[derive(Deserialize, Debug)]
 #[serde(tag = "type", content = "data")]
-enum PhysicsUpdate {
+enum IMUMeasurement {
     Rotation(Quaternion),
     Acceleration(Vec3),
-}
-
-#[derive(Debug, Default)]
-pub struct MotionData {
-    /// 3D velocity of the object
-    velocity: Vec3,
-    /// 3D acceleration of the object
-    acceleration: Vec3,
-    /// Rotation of the object's previous frame
-    /// Used to track change in rotation for accelerometer adjustments
-    prev_rotation: Quaternion,
 }
 
 pub enum FrameType {
@@ -36,11 +26,20 @@ pub enum FrameType {
     Racket,
 }
 
+/// A Client which reports state changes and stored motion data
 pub struct DynamicClient {
+    /// Shared referece to the position data that gets broacasted out to every observer client
     position_data: Arc<Mutex<ServerState>>,
-    motion_data: MotionData,
+    /// 3D velocity of the object
+    velocity: Vec3,
+    /// 3D acceleration of the object
+    acceleration: Vec3,
     frame_type: FrameType,
+    /// Represents the id of the connected client
     user: usize,
+    /// Config for data from the client's stream.
+    /// only applicable if the client is opting into odometry
+    stream_config: (u32, u32),
 }
 impl DynamicClient {
     pub fn new(user: usize, position_data: Arc<Mutex<ServerState>>, frame_type: FrameType) -> Self {
@@ -48,7 +47,9 @@ impl DynamicClient {
             user,
             frame_type,
             position_data,
-            motion_data: MotionData::default(),
+            velocity: [0.0, 0.0, 0.0],
+            acceleration: [0.0, 0.0, 0.0],
+            stream_config: (300, 150),
         }
     }
 
@@ -57,11 +58,22 @@ impl DynamicClient {
             // continue processing requests from the connection
             while let Ok(message) = websocket_stream.read_message() {
                 match message {
-                    Message::Text(text) => match serde_json::from_str::<PhysicsUpdate>(&text) {
-                        Ok(client_data) => self.update(client_data, super::DELTA),
+                    // using text messages for json payloads and data structures
+                    Message::Text(text) => match serde_json::from_str::<IMUMeasurement>(&text) {
+                        Ok(client_data) => self.process_imu_measurement(client_data, super::DELTA),
                         Err(e) => log::error!("[{}]", e),
                     },
-                    Message::Binary(data) => log::info!("binary [{:?}]", data),
+                    // using binary messages for video stream frame data
+                    Message::Binary(data) => match ImageBuffer::<Rgba<u8>, &[u8]>::from_raw(
+                        self.stream_config.0,
+                        self.stream_config.1,
+                        &data,
+                    ) {
+                        Some(frame) => self.process_image_buffer(frame),
+                        None => log::error!(
+                            "failed to parse bytes as [`ImageBuffer::<Rgba<u8>, &[u8]>`]."
+                        ),
+                    },
                     Message::Close(frame) => log::info!("connection closing [{:?}]", frame),
                     Message::Ping(ping) => log::info!("ping [{:?}]", ping),
                     Message::Pong(pong) => log::info!("pong [{:?}]", pong),
@@ -75,13 +87,16 @@ impl DynamicClient {
         });
     }
 
-    fn update(&mut self, client_data: PhysicsUpdate, delta: f64) {
-        let MotionData {
+    /// Compute updates to positional and motion data from the IMU measurements takes from the client device.
+    /// This could be acclerometers, gyroscopes, magnometers, etc...
+    fn process_imu_measurement(&mut self, client_imu_data: IMUMeasurement, delta: f64) {
+        let Self {
             ref mut velocity,
             ref mut acceleration,
-            ref mut prev_rotation,
-        } = self.motion_data;
+            ..
+        } = self;
 
+        // ask for exclusive access to the positional data in order to update our own current state
         if let Ok(mut data) = self.position_data.lock() {
             let PositionData {
                 ref mut position,
@@ -90,10 +105,9 @@ impl DynamicClient {
                 .entry(self.user)
                 .or_insert_with(|| PositionData::default());
 
-            match client_data {
-                PhysicsUpdate::Acceleration([x, y, z]) => {
+            match client_imu_data {
+                IMUMeasurement::Acceleration([x, y, z]) => {
                     const SCALING_FACTOR: f64 = 1.0;
-                    // TODO viewer acceleration is still not correct
                     let acceleration_update = quaternion::rotate_vector(
                         (rotation[3], [rotation[0], rotation[1], rotation[2]]),
                         match self.frame_type {
@@ -128,10 +142,7 @@ impl DynamicClient {
                     *velocity = velocity_update;
                     *acceleration = acceleration_update;
                 }
-                PhysicsUpdate::Rotation([x, y, z, w]) => {
-                    // track the rotation from our last frame
-                    prev_rotation.copy_from_slice(rotation);
-
+                IMUMeasurement::Rotation([x, y, z, w]) => {
                     match self.frame_type {
                         FrameType::Racket => {
                             // Racket Control
@@ -154,12 +165,19 @@ impl DynamicClient {
         }
     }
 
+    // load the raw bytes into an RBGA image buffer to use for Visual Odometry
+    fn process_image_buffer(&self, image_buffer: ImageBuffer<Rgba<u8>, &[u8]>) {
+        //
+    }
+
     fn cleanup_client(&mut self) {
         // remove the user data once they disconnect
         self.position_data.lock().unwrap().remove(&self.user);
     }
 }
 
+/// This quaternion orients a phone such that the viewing perspecting
+/// is based upon the orientation of the camera and is meant to be handled horizontally.
 static BASE_CAMERA_QUATERNION: Lazy<quaternion::Quaternion<f64>> = Lazy::new(|| {
     quaternion::mul(
         // offset the phone so that looking down is not looking straight

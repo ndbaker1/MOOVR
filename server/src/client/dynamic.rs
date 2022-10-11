@@ -4,12 +4,24 @@ use std::{
     thread,
 };
 
-use image::{ImageBuffer, Rgba};
+use image::{imageops::grayscale_with_type, ImageBuffer, Pixel, Rgba};
+use imageproc::{
+    corners::{corners_fast9, Corner},
+    drawing,
+};
 use once_cell::sync::Lazy;
 use serde::Deserialize;
 use tungstenite::{Message, WebSocket};
 
 use crate::{PositionData, ServerState};
+
+pub struct KeyPoint {
+    pub x: u32,
+    pub y: u32,
+}
+pub type Descriptor = u32;
+
+pub type Feature = (KeyPoint, Descriptor);
 
 pub type Quaternion = [f64; 4];
 pub type Vec3 = [f64; 3];
@@ -40,6 +52,8 @@ pub struct DynamicClient {
     /// Config for data from the client's stream.
     /// only applicable if the client is opting into odometry
     stream_config: (u32, u32),
+
+    last_features: Option<Vec<Feature>>,
 }
 impl DynamicClient {
     pub fn new(user: usize, position_data: Arc<Mutex<ServerState>>, frame_type: FrameType) -> Self {
@@ -50,6 +64,7 @@ impl DynamicClient {
             velocity: [0.0, 0.0, 0.0],
             acceleration: [0.0, 0.0, 0.0],
             stream_config: (300, 150),
+            last_features: None,
         }
     }
 
@@ -64,16 +79,18 @@ impl DynamicClient {
                         Err(e) => log::error!("[{}]", e),
                     },
                     // using binary messages for video stream frame data
-                    Message::Binary(data) => match ImageBuffer::<Rgba<u8>, &[u8]>::from_raw(
-                        self.stream_config.0,
-                        self.stream_config.1,
-                        &data,
-                    ) {
-                        Some(frame) => self.process_image_buffer(frame),
-                        None => log::error!(
-                            "failed to parse bytes as [`ImageBuffer::<Rgba<u8>, &[u8]>`]."
-                        ),
-                    },
+                    Message::Binary(mut data) => {
+                        match ImageBuffer::<Rgba<u8>, &mut [u8]>::from_raw(
+                            self.stream_config.0,
+                            self.stream_config.1,
+                            &mut data,
+                        ) {
+                            Some(frame) => self.process_image_buffer(frame),
+                            None => log::error!(
+                                "failed to parse bytes as [`ImageBuffer::<Rgba<u8>, &[u8]>`]."
+                            ),
+                        }
+                    }
                     Message::Close(frame) => log::info!("connection closing [{:?}]", frame),
                     Message::Ping(ping) => log::info!("ping [{:?}]", ping),
                     Message::Pong(pong) => log::info!("pong [{:?}]", pong),
@@ -166,14 +183,85 @@ impl DynamicClient {
     }
 
     // load the raw bytes into an RBGA image buffer to use for Visual Odometry
-    fn process_image_buffer(&self, image_buffer: ImageBuffer<Rgba<u8>, &[u8]>) {
-        //
+    fn process_image_buffer(&mut self, mut image_buffer: ImageBuffer<Rgba<u8>, &mut [u8]>) {
+        // first step - detect viable feature keypoints using the FAST-detection algorithm
+        // second step - compute descriptors about keypoints (using BRIEF?)
+        let features: Vec<_> = corners_fast9(&grayscale_with_type(&image_buffer), 20)
+            .into_iter()
+            .map(|Corner { x, y, .. }| {
+                let keypoint = KeyPoint { x, y };
+                let descriptor = compute_descriptor(&keypoint);
+                (keypoint, descriptor)
+            })
+            .collect();
+
+        if let Some(last_features) = &self.last_features {
+            for (keypoint, _) in last_features {
+                drawing::draw_hollow_circle_mut(
+                    &mut image_buffer,
+                    // draw the keypoint onto the image
+                    (keypoint.x as _, keypoint.y as _),
+                    // draw everything as a dot
+                    1,
+                    *GREEN,
+                );
+            }
+
+            for (keypoint, _) in &features {
+                drawing::draw_hollow_circle_mut(
+                    &mut image_buffer,
+                    // draw the keypoint onto the image
+                    (keypoint.x as _, keypoint.y as _),
+                    // draw everything as a dot
+                    1,
+                    *GREEN,
+                );
+            }
+
+            // draw matches
+            for ((kp1, _), (kp2, _)) in compute_matches(&features, &last_features) {
+                drawing::draw_line_segment_mut(
+                    &mut image_buffer,
+                    (kp1.x as _, kp1.y as _),
+                    (kp2.x as _, kp2.y as _),
+                    *BLUE,
+                );
+            }
+        }
+
+        self.last_features = Some(features);
+
+        image_buffer.save("slam-test.jpg").unwrap();
     }
 
     fn cleanup_client(&mut self) {
         // remove the user data once they disconnect
         self.position_data.lock().unwrap().remove(&self.user);
     }
+}
+
+fn compute_descriptor(keypoint: &KeyPoint) -> Descriptor {
+    return 5;
+}
+
+fn compute_matches<'a>(
+    features1: &'a Vec<Feature>,
+    features2: &'a Vec<Feature>,
+) -> Vec<(&'a Feature, &'a Feature)> {
+    let mut matches = Vec::new();
+    for feature1 in features1 {
+        for feature2 in features2 {
+            if features_compatible(feature1, feature2) {
+                matches.push((feature1, feature2));
+            }
+        }
+    }
+    return matches;
+}
+
+fn features_compatible(feature1: &Feature, feature2: &Feature) -> bool {
+    return feature1.0.x.abs_diff(feature2.0.x).pow(2) + feature1.0.y.abs_diff(feature2.0.y).pow(2)
+        < 50;
 }
 
 /// This quaternion orients a phone such that the viewing perspecting
@@ -186,3 +274,6 @@ static BASE_CAMERA_QUATERNION: Lazy<quaternion::Quaternion<f64>> = Lazy::new(|| 
         quaternion::axis_angle([1.0, 0.0, 0.0], -1.68),
     )
 });
+
+static GREEN: Lazy<Rgba<u8>> = Lazy::new(|| *Rgba::from_slice(&[0, 255, 0, 255]));
+static BLUE: Lazy<Rgba<u8>> = Lazy::new(|| *Rgba::from_slice(&[0, 0, 255, 255]));

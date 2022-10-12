@@ -116,16 +116,12 @@ impl DynamicClient {
                 .or_insert_with(|| PositionData::default());
 
             match client_imu_data {
-                IMUMeasurement::Acceleration([x, y, z]) => {
+                IMUMeasurement::Acceleration(acclereation_measurement) => {
                     const SCALING_FACTOR: f64 = 1.0;
-                    let acceleration_update = quaternion::rotate_vector(
-                        (rotation[3], [rotation[0], rotation[1], rotation[2]]),
-                        match self.frame_type {
-                            // see rotation logic, then apply the negated transformation since we have no valid negative 'w' component
-                            // undos: *rotation = [-x, -z, y, -w];
-                            FrameType::Racket => [x, z, -y],
-                            FrameType::Viewer => [x, y, z],
-                        },
+                    let acceleration_update = preproccess_acceleration(
+                        rotation,
+                        acclereation_measurement,
+                        &self.frame_type,
                     );
 
                     let mut velocity_update = [
@@ -152,24 +148,8 @@ impl DynamicClient {
                     *velocity = velocity_update;
                     *acceleration = acceleration_update;
                 }
-                IMUMeasurement::Rotation([x, y, z, w]) => {
-                    match self.frame_type {
-                        FrameType::Racket => {
-                            // Racket Control
-                            // invert and reverse the X and Y rotation:
-                            //      1. flip y and z based on how we interpret them
-                            //      2. flip sign of everything but W for inverse = conjugate
-                            //      3. mirror the XY plane (negation of the Z and W values).
-                            *rotation = [-x, -z, y, -w];
-                        }
-                        FrameType::Viewer => {
-                            // Head Control
-                            let (w, [x, y, z]) =
-                                quaternion::mul((w, [x, y, z]), *BASE_CAMERA_QUATERNION);
-
-                            *rotation = [-y, z, -x, w];
-                        }
-                    }
+                IMUMeasurement::Rotation(measured_rotation) => {
+                    *rotation = preprocess_rotation(measured_rotation, &self.frame_type)
                 }
             }
         }
@@ -181,7 +161,7 @@ impl DynamicClient {
             // run monocular slam on image buffer
             slam.track_monocular(&mut image_buffer, 0.0);
             // testing image slideshow
-            //image_buffer.save("slam-test.jpg").unwrap();
+            image_buffer.save("slam-test.jpg").unwrap();
         }
     }
 
@@ -192,13 +172,52 @@ impl DynamicClient {
     }
 }
 
-/// This quaternion orients a phone such that the viewing perspecting
-/// is based upon the orientation of the camera and is meant to be handled horizontally.
-static BASE_CAMERA_QUATERNION: Lazy<quaternion::Quaternion<f64>> = Lazy::new(|| {
-    quaternion::mul(
-        // offset the phone so that looking down is not looking straight
-        quaternion::axis_angle([0.0, 1.0, 0.0], 1.68),
-        // the phone needs to be rotated in order to use it sideways
-        quaternion::axis_angle([1.0, 0.0, 0.0], -1.68),
-    )
-});
+/// Preprocess rotations based on orientation of phone
+fn preprocess_rotation([rx, ry, rz, w]: Quaternion, frame_type: &FrameType) -> Quaternion {
+    match frame_type {
+        FrameType::Racket => {
+            // Racket Control
+            // invert and reverse the X and Y rotation:
+            //      1. flip y and z based on how we interpret them
+            //      2. flip sign of everything but W for inverse = conjugate
+            //      3. mirror the XY plane (negation of the Z and W values).
+            [-rx, -rz, ry, -w]
+        }
+        FrameType::Viewer => {
+            /// This quaternion orients a phone such that the viewing perspecting
+            /// is based upon the orientation of the camera and is meant to be handled horizontally.
+            static BASE_CAMERA_QUATERNION: Lazy<quaternion::Quaternion<f64>> = Lazy::new(|| {
+                quaternion::mul(
+                    // offset the phone so that looking down is not looking straight
+                    quaternion::axis_angle([0.0, 1.0, 0.0], 1.68),
+                    // the phone needs to be rotated in order to use it sideways
+                    quaternion::axis_angle([1.0, 0.0, 0.0], -1.68),
+                )
+            });
+
+            // Head Control
+            let (w, [x, y, z]) = quaternion::mul((w, [rx, ry, rz]), *BASE_CAMERA_QUATERNION);
+
+            [-y, z, -x, w]
+        }
+    }
+}
+
+/// Process accelerometer measuerments to accomodate phone rotation
+fn preproccess_acceleration(
+    [rx, ry, rz, w]: &Quaternion,
+    [ax, ay, az]: Vec3,
+    frame_type: &FrameType,
+) -> Vec3 {
+    let [x, y, z] = quaternion::rotate_vector(
+        (*w, [*rx, *ry, *rz]),
+        match frame_type {
+            // see rotation logic, then apply the negated transformation since we have no valid negative 'w' component
+            // undos: *rotation = [-x, -z, y, -w];
+            FrameType::Racket => [ax, az, -ay],
+            FrameType::Viewer => [ax, ay, az],
+        },
+    );
+
+    [x, y, z]
+}

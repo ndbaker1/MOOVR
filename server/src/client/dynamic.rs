@@ -9,7 +9,7 @@ use serde::Deserialize;
 use slamr::system::get_camera_intrinsic;
 use tungstenite::{Message, WebSocket};
 
-use crate::{PositionData, ServerState};
+use crate::{Pose, ServerState};
 
 pub type Quaternion = [f64; 4];
 pub type Vec3 = [f64; 3];
@@ -17,7 +17,7 @@ pub type Vec3 = [f64; 3];
 #[derive(Deserialize, Debug)]
 #[serde(tag = "type", content = "data")]
 enum IMUMeasurement {
-    Rotation(Quaternion),
+    Orientation(Quaternion),
     Acceleration(Vec3),
 }
 
@@ -26,7 +26,7 @@ pub enum FrameType {
     Racket,
 }
 
-/// A Client which reports state changes and stored motion data
+/// A Client which reports state changes and stores motion data
 pub struct DynamicClient {
     /// Shared referece to the position data that gets broacasted out to every observer client
     position_data: Arc<Mutex<ServerState>>,
@@ -34,6 +34,7 @@ pub struct DynamicClient {
     velocity: Vec3,
     /// 3D acceleration of the object
     acceleration: Vec3,
+    /// Indicator of which component the client wants to send or receive data for
     frame_type: FrameType,
     /// Represents the id of the connected client
     user: usize,
@@ -108,19 +109,17 @@ impl DynamicClient {
 
         // ask for exclusive access to the positional data in order to update our own current state
         if let Ok(mut data) = self.position_data.lock() {
-            let PositionData {
+            let Pose {
                 ref mut position,
-                ref mut rotation,
-            } = data
-                .entry(self.user)
-                .or_insert_with(|| PositionData::default());
+                ref mut orientation,
+            } = data.entry(self.user).or_insert_with(|| Pose::default());
 
             match client_imu_data {
                 IMUMeasurement::Acceleration(acclereation_measurement) => {
                     const SCALING_FACTOR: f64 = 1.0;
                     let acceleration_update = preproccess_acceleration(
-                        rotation,
                         acclereation_measurement,
+                        orientation,
                         &self.frame_type,
                     );
 
@@ -148,8 +147,8 @@ impl DynamicClient {
                     *velocity = velocity_update;
                     *acceleration = acceleration_update;
                 }
-                IMUMeasurement::Rotation(measured_rotation) => {
-                    *rotation = preprocess_rotation(measured_rotation, &self.frame_type)
+                IMUMeasurement::Orientation(measured_orientation) => {
+                    *orientation = preprocess_orientation(measured_orientation, &self.frame_type)
                 }
             }
         }
@@ -173,7 +172,8 @@ impl DynamicClient {
 }
 
 /// Preprocess rotations based on orientation of phone
-fn preprocess_rotation([rx, ry, rz, w]: Quaternion, frame_type: &FrameType) -> Quaternion {
+fn preprocess_orientation(orientation: Quaternion, frame_type: &FrameType) -> Quaternion {
+    let [rx, ry, rz, w] = orientation;
     match frame_type {
         FrameType::Racket => {
             // Racket Control
@@ -205,19 +205,19 @@ fn preprocess_rotation([rx, ry, rz, w]: Quaternion, frame_type: &FrameType) -> Q
 
 /// Process accelerometer measuerments to accomodate phone rotation
 fn preproccess_acceleration(
-    [rx, ry, rz, w]: &Quaternion,
-    [ax, ay, az]: Vec3,
+    acceleration: Vec3,
+    orientation: &Quaternion,
     frame_type: &FrameType,
 ) -> Vec3 {
-    let [x, y, z] = quaternion::rotate_vector(
-        (*w, [*rx, *ry, *rz]),
+    let [ax, ay, az] = acceleration;
+    let [rx, ry, rz, w] = *orientation;
+    quaternion::rotate_vector(
+        (w, [rx, ry, rz]),
         match frame_type {
             // see rotation logic, then apply the negated transformation since we have no valid negative 'w' component
             // undos: *rotation = [-x, -z, y, -w];
             FrameType::Racket => [ax, az, -ay],
             FrameType::Viewer => [ax, ay, az],
         },
-    );
-
-    [x, y, z]
+    )
 }

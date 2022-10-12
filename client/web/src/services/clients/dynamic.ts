@@ -1,7 +1,7 @@
 import { startAccelerometer, startOrientationTracker } from "@services/sensors";
 
 import { type WebSocketCallbacks, createServerWebSocket } from "../connection";
-import type { ChangeData, PlayerData } from "../data";
+import type { Pose } from "../data";
 
 export type DynamicClientParameters = {
   host: string,
@@ -15,7 +15,7 @@ export class DynamicClient {
     this.ws = createServerWebSocket({ host, path: `/${type}/${id}`, ...callbacks });
   }
 
-  public static asPlayerData(data: unknown): Record<number, PlayerData> {
+  public static asPlayerData(data: unknown): Record<number, Pose> {
     if (typeof data === 'string') {
       return JSON.parse(data);
     }

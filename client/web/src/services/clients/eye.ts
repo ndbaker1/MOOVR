@@ -1,12 +1,12 @@
-import type { PlayerData } from "../data";
+import type { Pose } from "../data";
 import { DynamicClient, type DynamicClientParameters } from "./dynamic";
 
 export class EyeClient extends DynamicClient {
     constructor(id: number, params: DynamicClientParameters) {
-       super(id, params, 'head');
+        super(id, params, 'head');
     }
 
-    public static asPlayerData(data: unknown): Record<number, PlayerData> {
+    public static asPlayerPose(data: unknown): Record<number, Pose> {
         if (typeof data === 'string') {
             return JSON.parse(data);
         }

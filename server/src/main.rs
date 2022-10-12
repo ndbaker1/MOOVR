@@ -26,15 +26,16 @@ fn main() {
     Server::serve(&format!("0.0.0.0:{}", port));
 }
 
+/// Container for the positions and orientation of an object in a scene
 #[derive(Debug, Default, Serialize)]
-pub struct PositionData {
+pub struct Pose {
     /// 3D coordinate of the object
     position: Vec3,
     /// Rotation of the object measured in quaternions
-    rotation: Quaternion,
+    orientation: Quaternion,
 }
 
-type ServerState = HashMap<usize, PositionData>;
+type ServerState = HashMap<usize, Pose>;
 
 const RACKET_PATH: &'static str = "racket";
 const HEAD_PATH: &'static str = "head";

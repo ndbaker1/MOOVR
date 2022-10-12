@@ -5,7 +5,17 @@ export class Recorder {
         const ctx = canvas.getContext('2d')!; // we are sure that we can obtain the context
         const video = document.createElement('video');
 
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { frameRate, width: 300, height: 150 } });
+        const stream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: {
+                frameRate,
+                width: 300,
+                height: 150,
+                facingMode: {
+                    exact: 'environment',
+                }
+            }
+        });
         video.srcObject = stream;
         video.play();
 

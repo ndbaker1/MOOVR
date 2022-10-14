@@ -82,7 +82,7 @@ impl DynamicClient {
                     ) {
                         Some(frame) => self.process_image_buffer(frame),
                         None => log::error!(
-                            "failed to parse bytes as [`ImageBuffer::<Rgba<u8>, &[u8]>`]."
+                            "failed to parse bytes as [`ImageBuffer::<Rgba<u8>, &mut [u8]>`]."
                         ),
                     }
                 }

@@ -46,7 +46,7 @@ pub struct DynamicClient {
 }
 impl DynamicClient {
     pub fn new(user: usize, position_data: Arc<Mutex<ServerState>>, frame_type: FrameType) -> Self {
-        let (w, h) = (300, 150);
+        let (w, h) = (150, 150);
         let k = get_camera_intrinsic(200.0, w as _, h as _);
         let k_inv = k.try_inverse().unwrap();
 
@@ -56,7 +56,7 @@ impl DynamicClient {
             position_data,
             velocity: [0.0, 0.0, 0.0],
             acceleration: [0.0, 0.0, 0.0],
-            stream_config: (300, 150),
+            stream_config: (w, h),
             slam: Some(slamr::system::System {
                 camera_intrinsics: (k, k_inv),
                 ..Default::default()
@@ -82,7 +82,7 @@ impl DynamicClient {
                     ) {
                         Some(frame) => self.process_image_buffer(frame),
                         None => log::error!(
-                            "failed to parse bytes as [`ImageBuffer::<Rgba<u8>, &mut [u8]>`]."
+                            "failed to parse bytes as [`ImageBuffer::<Rgba<u8>, &mut [u8]>`]. Message is {} bytes long.", data.len()
                         ),
                     }
                 }

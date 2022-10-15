@@ -9,13 +9,14 @@ export class Recorder {
             audio: false,
             video: {
                 frameRate,
-                width: 300,
-                height: 150,
+                width: { ideal: 150 },
+                height: { ideal: 150 },
                 facingMode: {
                     exact: 'environment',
                 }
             }
         });
+
         video.srcObject = stream;
         video.play();
 

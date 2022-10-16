@@ -6,7 +6,7 @@ use std::{
 use image::{ImageBuffer, Rgba};
 use once_cell::sync::Lazy;
 use serde::Deserialize;
-use slamr::system::get_camera_intrinsic;
+use slamr::{system::get_camera_intrinsic, tracker::ImuMeasurment};
 use tungstenite::{Message, WebSocket};
 
 use crate::{Pose, ServerState};
@@ -39,7 +39,7 @@ pub struct DynamicClient {
     /// Represents the id of the connected client
     user: usize,
     /// SLAM Module
-    slam: Option<slamr::system::System>,
+    slam: slamr::system::System,
     /// Config for data from the client's stream.
     /// only applicable if the client is opting into odometry
     stream_config: (u32, u32),
@@ -57,10 +57,10 @@ impl DynamicClient {
             velocity: [0.0, 0.0, 0.0],
             acceleration: [0.0, 0.0, 0.0],
             stream_config: (w, h),
-            slam: Some(slamr::system::System {
+            slam: slamr::system::System {
                 camera_intrinsics: (k, k_inv),
                 ..Default::default()
-            }),
+            },
         }
     }
 
@@ -116,28 +116,17 @@ impl DynamicClient {
 
             match client_imu_data {
                 IMUMeasurement::Acceleration(acclereation_measurement) => {
-                    const SCALING_FACTOR: f64 = 1.0;
                     let acceleration_update = preproccess_acceleration(
                         acclereation_measurement,
                         orientation,
                         &self.frame_type,
                     );
 
-                    let mut velocity_update = [
+                    let velocity_update = [
                         velocity[0] + (acceleration[0] + acceleration_update[0]) * 0.5 * delta,
                         velocity[1] + (acceleration[1] + acceleration_update[1]) * 0.5 * delta,
                         velocity[2] + (acceleration[2] + acceleration_update[2]) * 0.5 * delta,
                     ];
-
-                    // Temporary dampening logic
-                    if acceleration_update
-                        .into_iter()
-                        .all(|f| f < SCALING_FACTOR / 10.0 && f > -SCALING_FACTOR / 10.0)
-                    {
-                        for vel_comp in &mut velocity_update {
-                            *vel_comp *= 0.8;
-                        }
-                    }
 
                     position[0] += (velocity[0] + velocity_update[0]) * 0.5 * delta;
                     position[1] += (velocity[1] + velocity_update[1]) * 0.5 * delta;
@@ -146,22 +135,32 @@ impl DynamicClient {
                     // update current references
                     *velocity = velocity_update;
                     *acceleration = acceleration_update;
+
+                    self.slam.track_monocular_inertial(
+                        None,
+                        &[ImuMeasurment::Acceleration(*acceleration)],
+                        0.0,
+                    )
                 }
                 IMUMeasurement::Orientation(measured_orientation) => {
-                    *orientation = preprocess_orientation(measured_orientation, &self.frame_type)
+                    *orientation = preprocess_orientation(measured_orientation, &self.frame_type);
+                    self.slam.track_monocular_inertial(
+                        None,
+                        &[ImuMeasurment::Orientation(*orientation)],
+                        0.0,
+                    )
                 }
-            }
+            };
         }
     }
 
     // Load the raw bytes into an RBGA image buffer to use for Visual Odometry
     fn process_image_buffer(&mut self, mut image_buffer: ImageBuffer<Rgba<u8>, &mut [u8]>) {
-        if let Some(slam) = &mut self.slam {
-            // run monocular slam on image buffer
-            slam.track_monocular(&mut image_buffer, 0.0);
-            // testing image slideshow
-            image_buffer.save("slam-test.jpg").unwrap();
-        }
+        // run monocular slam on image buffer
+        self.slam
+            .track_monocular_inertial(Some(&mut image_buffer), &[], 0.0);
+        // testing image slideshow
+        image_buffer.save("slam-test.jpg").unwrap();
     }
 
     /// Remove and data that persists for a client when they are connected to the session

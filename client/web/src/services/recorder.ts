@@ -1,6 +1,6 @@
 export class Recorder {
 
-    public static async capture(callback: (_: ImageData) => any, frameRate = 15) {
+    public static async capture(callback: (_: ImageData) => any, frameRate = 10) {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d')!; // we are sure that we can obtain the context
         const video = document.createElement('video');

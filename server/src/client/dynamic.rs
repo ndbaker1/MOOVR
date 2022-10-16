@@ -146,7 +146,7 @@ impl DynamicClient {
                     *orientation = preprocess_orientation(measured_orientation, &self.frame_type);
                     self.slam.track_monocular_inertial(
                         None,
-                        &[ImuMeasurment::Orientation(*orientation)],
+                        &[ImuMeasurment::OrientationQ(*orientation)],
                         0.0,
                     )
                 }

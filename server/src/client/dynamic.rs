@@ -46,7 +46,7 @@ pub struct DynamicClient {
 }
 impl DynamicClient {
     pub fn new(user: usize, position_data: Arc<Mutex<ServerState>>, frame_type: FrameType) -> Self {
-        let (w, h) = (150, 150);
+        let (w, h) = (300, 150);
         let k = get_camera_intrinsic(200.0, w as _, h as _);
         let k_inv = k.try_inverse().unwrap();
 
@@ -112,7 +112,7 @@ impl DynamicClient {
             let Pose {
                 ref mut position,
                 ref mut orientation,
-            } = data.entry(self.user).or_insert_with(|| Pose::default());
+            } = data.entry(self.user).or_insert_with(Pose::default);
 
             match client_imu_data {
                 IMUMeasurement::Acceleration(acclereation_measurement) => {

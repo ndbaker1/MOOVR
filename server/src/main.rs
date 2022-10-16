@@ -37,9 +37,9 @@ pub struct Pose {
 
 type ServerState = HashMap<usize, Pose>;
 
-const RACKET_PATH: &'static str = "racket";
-const HEAD_PATH: &'static str = "head";
-const OBSERVER_PATH: &'static str = "observer";
+const RACKET_PATH: &str = "racket";
+const HEAD_PATH: &str = "head";
+const OBSERVER_PATH: &str = "observer";
 
 struct Server;
 

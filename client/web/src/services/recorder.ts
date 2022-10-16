@@ -9,7 +9,7 @@ export class Recorder {
             audio: false,
             video: {
                 frameRate,
-                width: { ideal: 150 },
+                width: { ideal: 300 },
                 height: { ideal: 150 },
                 facingMode: {
                     exact: 'environment',

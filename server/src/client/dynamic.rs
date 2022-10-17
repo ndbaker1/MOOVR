@@ -35,7 +35,7 @@ pub struct DynamicClient {
     /// 3D acceleration of the object
     acceleration: Vec3,
     /// Indicator of which component the client wants to send or receive data for
-    frame_type: FrameType,
+    component: FrameType,
     /// Represents the id of the connected client
     user: usize,
     /// SLAM Module
@@ -45,14 +45,14 @@ pub struct DynamicClient {
     stream_config: (u32, u32),
 }
 impl DynamicClient {
-    pub fn new(user: usize, position_data: Arc<Mutex<ServerState>>, frame_type: FrameType) -> Self {
-        let (w, h) = (300, 150);
+    pub fn new(user: usize, position_data: Arc<Mutex<ServerState>>, component: FrameType) -> Self {
+        let (w, h) = (150, 150);
         let k = get_camera_intrinsic(200.0, w as _, h as _);
         let k_inv = k.try_inverse().unwrap();
 
         Self {
             user,
-            frame_type,
+            component,
             position_data,
             velocity: [0.0, 0.0, 0.0],
             acceleration: [0.0, 0.0, 0.0],
@@ -119,7 +119,7 @@ impl DynamicClient {
                     let acceleration_update = preproccess_acceleration(
                         acclereation_measurement,
                         orientation,
-                        &self.frame_type,
+                        &self.component,
                     );
 
                     let velocity_update = [
@@ -143,7 +143,7 @@ impl DynamicClient {
                     )
                 }
                 IMUMeasurement::Orientation(measured_orientation) => {
-                    *orientation = preprocess_orientation(measured_orientation, &self.frame_type);
+                    *orientation = preprocess_orientation(measured_orientation, &self.component);
                     self.slam.track_monocular_inertial(
                         None,
                         &[ImuMeasurment::OrientationQ(*orientation)],
@@ -171,9 +171,9 @@ impl DynamicClient {
 }
 
 /// Preprocess rotations based on orientation of phone
-fn preprocess_orientation(orientation: Quaternion, frame_type: &FrameType) -> Quaternion {
+fn preprocess_orientation(orientation: Quaternion, component: &FrameType) -> Quaternion {
     let [rx, ry, rz, w] = orientation;
-    match frame_type {
+    match component {
         FrameType::Racket => {
             // Racket Control
             // invert and reverse the X and Y rotation:
@@ -202,17 +202,17 @@ fn preprocess_orientation(orientation: Quaternion, frame_type: &FrameType) -> Qu
     }
 }
 
-/// Process accelerometer measuerments to accomodate phone rotation
+/// Process accelerometer measurements to accomodate phone rotation
 fn preproccess_acceleration(
     acceleration: Vec3,
     orientation: &Quaternion,
-    frame_type: &FrameType,
+    component: &FrameType,
 ) -> Vec3 {
     let [ax, ay, az] = acceleration;
     let [rx, ry, rz, w] = *orientation;
     quaternion::rotate_vector(
         (w, [rx, ry, rz]),
-        match frame_type {
+        match component {
             // see rotation logic, then apply the negated transformation since we have no valid negative 'w' component
             // undos: *rotation = [-x, -z, y, -w];
             FrameType::Racket => [ax, az, -ay],

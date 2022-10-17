@@ -4,16 +4,15 @@ export class Recorder {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d')!; // we are sure that we can obtain the context
         const video = document.createElement('video');
+        const [width, height] = [150, 150];
 
         const stream = await navigator.mediaDevices.getUserMedia({
             audio: false,
             video: {
                 frameRate,
-                width: { ideal: 300 },
-                height: { ideal: 150 },
-                facingMode: {
-                    exact: 'environment',
-                }
+                width: { ideal: width },
+                height: { ideal: height },
+                facingMode: { ideal: 'environment' }
             }
         });
 
@@ -22,7 +21,7 @@ export class Recorder {
 
         const interval = setInterval(() => {
             ctx.drawImage(video, 0, 0);
-            callback(ctx.getImageData(0, 0, canvas.width, canvas.height));
+            callback(ctx.getImageData(0, 0, width, height));
         }, 1000 / frameRate);
 
         return () => {

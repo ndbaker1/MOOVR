@@ -30,6 +30,10 @@ pub enum FrameType {
 pub struct DynamicClient {
     /// Shared referece to the position data that gets broacasted out to every observer client
     position_data: Arc<Mutex<ServerState>>,
+    /// Local copy of 3D postition of object
+    position: Vec3,
+    /// Orientation of the camera
+    orientation: Quaternion,
     /// 3D velocity of the object
     velocity: Vec3,
     /// 3D acceleration of the object
@@ -54,6 +58,8 @@ impl DynamicClient {
             user,
             component,
             position_data,
+            position: [0.0, 0.0, 0.0],
+            orientation: [0.0, 0.0, 0.0, 0.0],
             velocity: [0.0, 0.0, 0.0],
             acceleration: [0.0, 0.0, 0.0],
             stream_config: (w, h),
@@ -101,57 +107,48 @@ impl DynamicClient {
     /// Compute updates to positional and motion data from the IMU measurements takes from the client device.
     /// This could be acclerometers, gyroscopes, magnometers, etc...
     fn process_imu_measurement(&mut self, client_imu_data: IMUMeasurement, delta: f64) {
-        let Self {
-            ref mut velocity,
-            ref mut acceleration,
-            ..
-        } = self;
+        match client_imu_data {
+            IMUMeasurement::Acceleration(acclereation_measurement) => {
+                let acceleration_update = preproccess_acceleration(
+                    acclereation_measurement,
+                    &self.orientation,
+                    &self.component,
+                );
 
-        // ask for exclusive access to the positional data in order to update our own current state
-        if let Ok(mut data) = self.position_data.lock() {
-            let Pose {
-                ref mut position,
-                ref mut orientation,
-            } = data.entry(self.user).or_insert_with(Pose::default);
+                let velocity_update = [
+                    self.velocity[0]
+                        + (self.acceleration[0] + acceleration_update[0]) * 0.5 * delta,
+                    self.velocity[1]
+                        + (self.acceleration[1] + acceleration_update[1]) * 0.5 * delta,
+                    self.velocity[2]
+                        + (self.acceleration[2] + acceleration_update[2]) * 0.5 * delta,
+                ];
 
-            match client_imu_data {
-                IMUMeasurement::Acceleration(acclereation_measurement) => {
-                    let acceleration_update = preproccess_acceleration(
-                        acclereation_measurement,
-                        orientation,
-                        &self.component,
-                    );
+                self.position[0] += (self.velocity[0] + velocity_update[0]) * 0.5 * delta;
+                self.position[1] += (self.velocity[1] + velocity_update[1]) * 0.5 * delta;
+                self.position[2] += (self.velocity[2] + velocity_update[2]) * 0.5 * delta;
 
-                    let velocity_update = [
-                        velocity[0] + (acceleration[0] + acceleration_update[0]) * 0.5 * delta,
-                        velocity[1] + (acceleration[1] + acceleration_update[1]) * 0.5 * delta,
-                        velocity[2] + (acceleration[2] + acceleration_update[2]) * 0.5 * delta,
-                    ];
+                // update current references
+                self.velocity = velocity_update;
+                self.acceleration = acceleration_update;
 
-                    position[0] += (velocity[0] + velocity_update[0]) * 0.5 * delta;
-                    position[1] += (velocity[1] + velocity_update[1]) * 0.5 * delta;
-                    position[2] += (velocity[2] + velocity_update[2]) * 0.5 * delta;
-
-                    // update current references
-                    *velocity = velocity_update;
-                    *acceleration = acceleration_update;
-
-                    self.slam.track_monocular_inertial(
-                        None,
-                        &[ImuMeasurment::Acceleration(*acceleration)],
-                        0.0,
-                    )
-                }
-                IMUMeasurement::Orientation(measured_orientation) => {
-                    *orientation = preprocess_orientation(measured_orientation, &self.component);
-                    self.slam.track_monocular_inertial(
-                        None,
-                        &[ImuMeasurment::OrientationQ(*orientation)],
-                        0.0,
-                    )
-                }
-            };
+                self.slam.track_monocular_inertial(
+                    None,
+                    &[ImuMeasurment::Acceleration(self.acceleration)],
+                    0.0,
+                )
+            }
+            IMUMeasurement::Orientation(measured_orientation) => {
+                self.orientation = preprocess_orientation(measured_orientation, &self.component);
+                self.slam.track_monocular_inertial(
+                    None,
+                    &[ImuMeasurment::OrientationQ(self.orientation)],
+                    0.0,
+                )
+            }
         }
+
+        self.update_server_state();
     }
 
     // Load the raw bytes into an RBGA image buffer to use for Visual Odometry
@@ -159,8 +156,22 @@ impl DynamicClient {
         // run monocular slam on image buffer
         self.slam
             .track_monocular_inertial(Some(&mut image_buffer), &[], 0.0);
+
         // testing image slideshow
         image_buffer.save("slam-test.jpg").unwrap();
+    }
+
+    /// Lock ServerState pose data and update our own entry with most recent parameters
+    fn update_server_state(&self) {
+        if let Ok(mut data) = self.position_data.lock() {
+            data.insert(
+                self.user,
+                Pose {
+                    position: self.position,
+                    orientation: self.orientation,
+                },
+            );
+        }
     }
 
     /// Remove and data that persists for a client when they are connected to the session

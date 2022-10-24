@@ -6,7 +6,7 @@ use std::{
 use image::{ImageBuffer, Rgba};
 use once_cell::sync::Lazy;
 use serde::Deserialize;
-use slamr::{system::get_camera_intrinsic, tracker::ImuMeasurment};
+use slamr::slam::{self, system::get_camera_intrinsic, tracker::ImuMeasurment};
 use tungstenite::{Message, WebSocket};
 
 use crate::{Pose, ServerState};
@@ -43,7 +43,7 @@ pub struct DynamicClient {
     /// Represents the id of the connected client
     user: usize,
     /// SLAM Module
-    slam: slamr::system::System,
+    slam: slam::system::System,
     /// Config for data from the client's stream.
     /// only applicable if the client is opting into odometry
     stream_config: (u32, u32),
@@ -51,8 +51,7 @@ pub struct DynamicClient {
 impl DynamicClient {
     pub fn new(user: usize, position_data: Arc<Mutex<ServerState>>, component: FrameType) -> Self {
         let (w, h) = (150, 150);
-        let k = get_camera_intrinsic(200.0, w as _, h as _);
-        let k_inv = k.try_inverse().unwrap();
+        let camera_intrinsic = get_camera_intrinsic(200.0, w as _, h as _);
 
         Self {
             user,
@@ -63,9 +62,11 @@ impl DynamicClient {
             velocity: [0.0, 0.0, 0.0],
             acceleration: [0.0, 0.0, 0.0],
             stream_config: (w, h),
-            slam: slamr::system::System {
-                camera_intrinsics: (k, k_inv),
-                ..Default::default()
+            slam: slam::system::System {
+                tracker: slam::tracker::Tracker {
+                    camera_intrinsic,
+                    ..Default::default()
+                },
             },
         }
     }
@@ -106,8 +107,8 @@ impl DynamicClient {
 
     /// Compute updates to positional and motion data from the IMU measurements takes from the client device.
     /// This could be acclerometers, gyroscopes, magnometers, etc...
-    fn process_imu_measurement(&mut self, client_imu_data: IMUMeasurement, delta: f64) {
-        match client_imu_data {
+    fn process_imu_measurement(&mut self, imu_measurment: IMUMeasurement, delta: f64) {
+        match imu_measurment {
             IMUMeasurement::Acceleration(acclereation_measurement) => {
                 let acceleration_update = preproccess_acceleration(
                     acclereation_measurement,

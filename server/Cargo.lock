@@ -1072,6 +1072,7 @@ dependencies = [
  "env_logger",
  "image",
  "log",
+ "nalgebra 0.31.2",
  "once_cell",
  "quaternion",
  "serde",

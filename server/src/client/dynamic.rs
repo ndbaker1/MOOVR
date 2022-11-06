@@ -1,4 +1,5 @@
 use std::{
+    collections::VecDeque,
     net::TcpStream,
     sync::{Arc, Mutex},
 };
@@ -6,7 +7,7 @@ use std::{
 use image::{ImageBuffer, Rgba};
 use once_cell::sync::Lazy;
 use serde::Deserialize;
-use slamr::slam::{self, system::get_camera_intrinsic, tracker::ImuMeasurment};
+use slamr::slam::tracker::{SizedFeature, Tracker};
 use tungstenite::{Message, WebSocket};
 
 use crate::{Pose, ServerState};
@@ -42,17 +43,13 @@ pub struct DynamicClient {
     component: FrameType,
     /// Represents the id of the connected client
     user: usize,
-    /// SLAM Module
-    slam: slam::system::System,
     /// Config for data from the client's stream.
     /// only applicable if the client is opting into odometry
     stream_config: (u32, u32),
 }
+
 impl DynamicClient {
     pub fn new(user: usize, position_data: Arc<Mutex<ServerState>>, component: FrameType) -> Self {
-        let (w, h) = (150, 150);
-        let camera_intrinsic = get_camera_intrinsic(200.0, w as _, h as _);
-
         Self {
             user,
             component,
@@ -61,13 +58,7 @@ impl DynamicClient {
             orientation: [0.0, 0.0, 0.0, 0.0],
             velocity: [0.0, 0.0, 0.0],
             acceleration: [0.0, 0.0, 0.0],
-            stream_config: (w, h),
-            slam: slam::system::System {
-                tracker: slam::tracker::Tracker {
-                    camera_intrinsic,
-                    ..Default::default()
-                },
-            },
+            stream_config: (150, 150),
         }
     }
 
@@ -81,17 +72,17 @@ impl DynamicClient {
                     Err(e) => log::error!("[{}]", e),
                 },
                 // using binary messages for video stream frame data
-                Message::Binary(mut data) => {
-                    match ImageBuffer::<Rgba<u8>, &mut [u8]>::from_raw(
-                        self.stream_config.0,
-                        self.stream_config.1,
-                        &mut data,
-                    ) {
-                        Some(frame) => self.process_image_buffer(frame),
-                        None => log::error!(
-                            "failed to parse bytes as [`ImageBuffer::<Rgba<u8>, &mut [u8]>`]. Message is {} bytes long.", data.len()
-                        ),
-                    }
+                Message::Binary(data) => {
+                    match ImageBuffer::<Rgba<u8>, &[u8]>::from_raw(
+                         self.stream_config.0,
+                         self.stream_config.1,
+                         &data,
+                     ) {
+                         Some(frame) => self.process_image_buffer(frame),
+                         None => log::error!(
+                             "failed to parse bytes as [`ImageBuffer::<Rgba<u8>, &mut [u8]>`]. Message is {} bytes long.", data.len()
+                         ),
+                     }
                 }
                 Message::Close(frame) => log::info!("connection closing [{:?}]", frame),
                 Message::Ping(ping) => log::info!("ping [{:?}]", ping),
@@ -107,11 +98,11 @@ impl DynamicClient {
 
     /// Compute updates to positional and motion data from the IMU measurements takes from the client device.
     /// This could be acclerometers, gyroscopes, magnometers, etc...
-    fn process_imu_measurement(&mut self, imu_measurment: IMUMeasurement, delta: f64) {
-        match imu_measurment {
-            IMUMeasurement::Acceleration(acclereation_measurement) => {
+    fn process_imu_measurement(&mut self, imu_measurement: IMUMeasurement, delta: f64) {
+        match imu_measurement {
+            IMUMeasurement::Acceleration(acceleration_measurement) => {
                 let acceleration_update = preproccess_acceleration(
-                    acclereation_measurement,
+                    acceleration_measurement,
                     &self.orientation,
                     &self.component,
                 );
@@ -132,20 +123,9 @@ impl DynamicClient {
                 // update current references
                 self.velocity = velocity_update;
                 self.acceleration = acceleration_update;
-
-                self.slam.track_monocular_inertial(
-                    None,
-                    &[ImuMeasurment::Acceleration(self.acceleration)],
-                    0.0,
-                )
             }
-            IMUMeasurement::Orientation(measured_orientation) => {
-                self.orientation = preprocess_orientation(measured_orientation, &self.component);
-                self.slam.track_monocular_inertial(
-                    None,
-                    &[ImuMeasurment::OrientationQ(self.orientation)],
-                    0.0,
-                )
+            IMUMeasurement::Orientation(orientation_measurement) => {
+                self.orientation = preprocess_orientation(orientation_measurement, &self.component);
             }
         }
 
@@ -153,13 +133,9 @@ impl DynamicClient {
     }
 
     // Load the raw bytes into an RBGA image buffer to use for Visual Odometry
-    fn process_image_buffer(&mut self, mut image_buffer: ImageBuffer<Rgba<u8>, &mut [u8]>) {
+    fn process_image_buffer(&mut self, image_buffer: ImageBuffer<Rgba<u8>, &[u8]>) {
         // run monocular slam on image buffer
-        self.slam
-            .track_monocular_inertial(Some(&mut image_buffer), &[], 0.0);
-
-        // testing image slideshow
-        image_buffer.save("slam-test.jpg").unwrap();
+        let features = Tracker::extract_features(&image_buffer);
     }
 
     /// Lock ServerState pose data and update our own entry with most recent parameters
@@ -231,4 +207,58 @@ fn preproccess_acceleration(
             FrameType::Viewer => [ax, ay, az],
         },
     )
+}
+
+type PositionSnapshot = (Vec<SizedFeature>, Vec3);
+
+#[derive(Default)]
+struct VisualStabilizer {
+    capture_window: VecDeque<PositionSnapshot>,
+}
+
+impl VisualStabilizer {
+    const WINDOW_SIZE: usize = 50;
+    const MIN_CORRESPONDENCE: usize = 20;
+    const MAX_DISTANCE_ERROR: u32 = 200;
+
+    fn append_frame(&mut self, snapshot: PositionSnapshot) {
+        if snapshot.0.len() >= 40 {
+            self.capture_window.push_back(snapshot);
+
+            if self.capture_window.len() > Self::WINDOW_SIZE {
+                self.capture_window.pop_front();
+            }
+        }
+    }
+
+    fn detect_match(&self, features: &Vec<SizedFeature>) -> Option<&Vec3> {
+        self.capture_window
+            .iter()
+            .filter_map(|(old_features, pos)| {
+                let matches = Tracker::match_features_knn(features, old_features);
+
+                if let Some((_, inlier_indexes)) = Tracker::sample_consensus_fundamental(&matches) {
+                    let matches = inlier_indexes.iter().map(|&k| matches[k]);
+
+                    if matches.len() < Self::MIN_CORRESPONDENCE {
+                        return None;
+                    }
+
+                    let dist = matches.fold(0, |acc, cur| {
+                        acc + (cur.0.keypoint.x - cur.1.keypoint.x).pow(2)
+                            + (cur.0.keypoint.y - cur.1.keypoint.y).pow(2)
+                    });
+
+                    if dist > Self::MAX_DISTANCE_ERROR {
+                        return None;
+                    }
+
+                    return Some((dist, pos));
+                }
+
+                None
+            })
+            .max_by_key(|(dist, _)| *dist)
+            .map(|(_, pos)| pos)
+    }
 }

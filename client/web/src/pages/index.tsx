@@ -7,9 +7,11 @@ import * as THREE from 'three';
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader";
 
 import { EyeClient, RacketClient, ObserverClient } from "@services/clients";
-import type { PlayerData } from "@services/data";
+import type { Pose } from "@services/data";
 
 import { BASE_PATH, WS_HOST } from "../../environment";
+import { Recorder } from "@services/recorder";
+
 
 declare global {
   function debug(): void;
@@ -36,6 +38,7 @@ const Home = () => {
     setEyeClientLoading(true);
     const updateObserverClient = () => {
       const client = new EyeClient(i - 1, { host: webSocketHost, callbacks: {} });
+      Recorder.capture((im) => client.send(im.data));
       client.initSensors();
       initObserverView({ code: renderCode }, new ObserverClient(i, { host: webSocketHost, callbacks: {} }));
       setEyeClient(client);
@@ -54,6 +57,7 @@ const Home = () => {
     setRacketClientLoading(true);
     const updateRacketClient = () => {
       const client = new RacketClient(i, { host: webSocketHost, callbacks: {} });
+      Recorder.capture((im) => client.send(im.data));
       client.initSensors();
       setRacketClient(client);
       setRacketClientLoading(false);
@@ -214,6 +218,7 @@ async function loadMeshes() {
 
 
 async function initObserverView(parameters: RenderParameters, observerClient: ObserverClient) {
+
   const scene = new THREE.Scene();
 
   const camera = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -249,16 +254,16 @@ async function initObserverView(parameters: RenderParameters, observerClient: Ob
 
   // Renderer to run for the client,
   // which can be custom edited from the debug window of the app
-  const observerRender: (id: number, playerData: PlayerData, object?: THREE.Mesh) => void = !!parameters.code
+  const observerRender: (id: number, playerPose: Pose, object?: THREE.Mesh) => void = !!parameters.code
     ? new Function('id', 'playerData', 'object', parameters.code) as any
-    : (id, playerData, object) => {
+    : (id, playerPose, object) => {
       if (id == observerClient.id - 1) {
-        camera.quaternion.fromArray(playerData.rotation);
-        camera.position.fromArray(playerData.position);
+        camera.quaternion.fromArray(playerPose.orientation);
+        camera.position.fromArray(playerPose.position);
       } else {
         if (object) {
-          object.quaternion.fromArray(playerData.rotation);
-          object.position.fromArray(playerData.position);
+          object.quaternion.fromArray(playerPose.orientation);
+          object.position.fromArray(playerPose.position);
         } else {
           console.error(`no mesh provided for body that needs to be drawn with id [${id}]`);
         }
@@ -266,8 +271,8 @@ async function initObserverView(parameters: RenderParameters, observerClient: Ob
     };
 
   // Update the geometry of the scene using PlayerData
-  const update = (updates: Record<string, PlayerData>) => {
-    Object.entries(updates).forEach(([idKey, playerData]) => {
+  const update = (updates: Record<string, Pose>) => {
+    Object.entries(updates).forEach(([idKey, playerPose]) => {
       const id = parseInt(idKey);
       // logic for adding new meshes when a new player connects
       if (!meshes.has(id) && observerClient.id != id) {
@@ -277,12 +282,12 @@ async function initObserverView(parameters: RenderParameters, observerClient: Ob
         console.log('created mesh for id', id);
       }
 
-      observerRender(id, playerData, meshes.get(id)!);
+      observerRender(id, playerPose, meshes.get(id)!);
     });
   };
 
   // Trigger scene update upon each message recieved from the server
-  observerClient.ws.addEventListener('message', ({ data }) => update(EyeClient.asPlayerData(data)));
+  observerClient.ws.addEventListener('message', ({ data }) => update(EyeClient.asPlayerPose(data)));
 
   function animation(time: number) {
     renderer.render(scene, camera);

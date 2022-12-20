@@ -23,11 +23,15 @@ The aim of this demo is to make the Virtual Reality experience accessible to any
 ### Goals
 - [x] Web client (Javascript)
 - [x] Server (Rust) 
+  - [x] WebSockets
+  - [ ] TCP Sockets
+  - [ ] UDP approach
 - [x] PoC (⚒)
-- [ ] Stabilize motion tracking or potentially create system of correction mechanisms (environment image tracking?)
+  - [x] integrate IMU 
+  - [ ] use [SLAM](https://en.wikipedia.org/wiki/Simultaneous_localization_and_mapping) to stabilize pose estimation
 - [ ] Physics integration (ball + table collisions with racket)
-- [ ] Android client
-- [ ] iOS client
+- [ ] Android native client
+- [ ] iOS native client
 
 ## References
 - [Improving low-cost inertial-measurement-unit (IMU)-based motion tracking accuracy for a biomorphic hyper-redundant snake robot](https://doi.org/10.1186/s40638-017-0069-z)

@@ -1,0 +1,3 @@
+[submodule "SLAMR"]
+	path = SLAMR
+	url = https://github.com/ndbaker1/SLAMR

@@ -17,7 +17,8 @@ export async function startOrientationTracker(sendCallback) {
 
     sensor.addEventListener('reading', () => {
         try {
-            sendCallback({ type: "Rotation", data: sensor.quaternion });
+            // IMPORTANT: this line is type sensitive to IMUMeasurement data struct definition
+            sendCallback({ type: "Orientation", data: sensor.quaternion });
         } catch (e) {
             console.error(e);
             sensor.stop();
@@ -47,6 +48,7 @@ export async function startAccelerometer(sendCallback) {
 
     sensor.addEventListener('reading', () => {
         try {
+            // IMPORTANT: this line is type sensitive to IMUMeasurement data struct definition
             sendCallback({ type: "Acceleration", data: [sensor.x, sensor.y, sensor.z] });
         } catch (e) {
             console.error(e);

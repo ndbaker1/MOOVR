@@ -7,13 +7,12 @@ use std::{
 
 use tungstenite::{Message, WebSocket};
 
+type SharedClientSocket = Arc<Mutex<Vec<(usize, WebSocket<TcpStream>)>>>;
+
 pub struct ObserverClientManager;
 impl ObserverClientManager {
-    pub fn run(
-        data: Arc<Mutex<crate::ServerState>>,
-        observers: Arc<Mutex<Vec<(usize, WebSocket<TcpStream>)>>>,
-    ) {
-        thread::spawn(move || loop {
+    pub fn run(data: Arc<Mutex<crate::ServerState>>, observers: SharedClientSocket) {
+        loop {
             if let Ok(data) = data.lock() {
                 // don't send empty messages to the users
                 if !data.is_empty() {
@@ -33,6 +32,6 @@ impl ObserverClientManager {
 
             // sleep for 60 seconds to prevent resource starvation
             thread::sleep(Duration::from_secs_f64(super::DELTA));
-        });
+        }
     }
 }

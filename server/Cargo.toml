@@ -14,6 +14,6 @@ quaternion = "0.4.1"
 nalgebra = "0.31.2"
 serde = { version = "1.0.142", features = ["derive"] }
 serde_json = "1.0.83"
-tungstenite = { version = "0.17.2", features = ["rustls"] } 
+tungstenite = { version = "0.20.1", features = ["rustls"] } 
 
 slamr = { path = "../SLAMR" }

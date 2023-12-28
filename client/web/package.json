@@ -18,7 +18,7 @@
     "@mantine/next": "^5.1.0",
     "@monaco-editor/react": "^4.4.5",
     "monaco-editor": "^0.34.0",
-    "next": "12.2.4",
+    "next": "14.0.4",
     "next-pwa": "^5.5.5",
     "react": "18.2.0",
     "react-dom": "18.2.0",
